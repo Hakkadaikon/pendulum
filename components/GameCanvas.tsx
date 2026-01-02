@@ -33,6 +33,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
+  // Track if the mouse has moved yet to prevent initial warp
+  const hasMoved = useRef(false);
+  
   // Physics State Refs
   const anchorPos = useRef<Vector2D>({ x: CANVAS_WIDTH / 2, y: 100 });
   const ballPos = useRef<Vector2D>({ x: CANVAS_WIDTH / 2, y: 200 });
@@ -77,10 +80,20 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    anchorPos.current = {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    };
+    const newX = e.clientX - rect.left;
+    const newY = e.clientY - rect.top;
+
+    if (!hasMoved.current) {
+      // First move: Teleport anchor AND ball together to avoid sudden spring force
+      const offsetX = ballPos.current.x - anchorPos.current.x;
+      const offsetY = ballPos.current.y - anchorPos.current.y;
+      
+      anchorPos.current = { x: newX, y: newY };
+      ballPos.current = { x: newX + offsetX, y: newY + offsetY };
+      hasMoved.current = true;
+    } else {
+      anchorPos.current = { x: newX, y: newY };
+    }
   };
 
   useEffect(() => {
@@ -89,6 +102,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
     let tickAccumulator = 0;
 
     const updatePhysics = () => {
+      // Don't update physics until the player has engaged with the mouse
+      if (!hasMoved.current) return;
+
       const stats = statsRef.current;
       if (stats.timeLeft <= 0) return;
 
@@ -194,10 +210,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
         multiplier = 0;
       }
 
-      // Trigger Visual Effects
       const fwId = Math.random().toString(36).substr(2, 9);
       setFireworks(prev => [...prev, { id: fwId, x: t.pos.x, y: t.pos.y, grade }]);
-      // Longer timeout for the Kanji to stay visible for 2s
       setTimeout(() => {
         setFireworks(prev => prev.filter(f => f.id !== fwId));
       }, 2000);
@@ -240,6 +254,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       }
       for (let i = 0; i < CANVAS_HEIGHT; i += 50) {
         ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke();
+      }
+
+      // If mouse hasn't moved, draw a subtle hint or nothing to avoid the jumpy visual
+      if (!hasMoved.current) {
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('MOVE MOUSE TO START', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+        return;
       }
 
       const stats = statsRef.current;
