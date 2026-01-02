@@ -14,6 +14,7 @@ import {
 import { GameSettings, Vector2D, Target, TargetType, GameStats } from '../types';
 import UIOverlay from './UIOverlay';
 import FireworkEffect, { EvalGrade } from './FireworkEffect';
+import Background3D from './Background3D';
 
 interface FireworkInstance {
   id: string;
@@ -31,6 +32,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [currentStretch, setCurrentStretch] = useState(0);
   
   const isPC = dimensions.width > 768;
   const wallWidth = isPC ? dimensions.width * 0.2 : 0;
@@ -112,6 +114,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
     let animationFrameId: number;
     let lastTime = performance.now();
     let accumulator = 0;
+    let lastStatsSync = 0;
 
     const updatePhysics = () => {
       if (!hasMoved.current) return;
@@ -228,6 +231,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
         uiRefs.tensionLabel.current.className = `text-[10px] md:text-xs font-bold uppercase tracking-widest ${isDanger ? 'text-red-500' : 'text-zinc-500'}`;
       }
       if (uiRefs.dangerBorder.current) uiRefs.dangerBorder.current.style.opacity = isDanger ? '1' : '0';
+      
+      // Sync stretch for 3D background (throttled)
+      if (performance.now() - lastStatsSync > 50) {
+        setCurrentStretch(s.stretch);
+        lastStatsSync = performance.now();
+      }
     };
 
     const draw = (alpha: number) => {
@@ -235,18 +244,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       if (!ctx) return;
       const w = dimensions.width, h = dimensions.height;
 
-      ctx.fillStyle = 'rgba(10, 10, 10, 0.45)';
+      // Transparent Trail Logic: Fade existing content instead of filling black
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.fillRect(0, 0, w, h);
-
-      ctx.strokeStyle = '#1a1a1a';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let i = 0; i < w; i += 50) { ctx.moveTo(i, 0); ctx.lineTo(i, h); }
-      for (let i = 0; i < h; i += 50) { ctx.moveTo(0, i); ctx.lineTo(w, i); }
-      ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
 
       if (isPC) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.fillRect(0, 0, activeMinX, h);
         ctx.fillRect(activeMaxX, 0, activeMinX, h);
         ctx.strokeStyle = 'rgba(59, 130, 246, 0.2)';
@@ -280,29 +285,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       ctx.strokeStyle = color;
       ctx.beginPath(); ctx.moveTo(drawAnchor.x, drawAnchor.y); ctx.lineTo(drawBall.x, drawBall.y); ctx.stroke();
 
-      // --- NEW ENHANCED ANCHOR DRAWING ---
-      // Outer ring
+      // Enhanced Anchor
       ctx.strokeStyle = '#f8fafc';
       ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(drawAnchor.x, drawAnchor.y, 8, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Glowing Core
+      ctx.beginPath(); ctx.arc(drawAnchor.x, drawAnchor.y, 8, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = color;
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = color;
-      ctx.beginPath();
-      ctx.arc(drawAnchor.x, drawAnchor.y, 4, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.shadowBlur = 15; ctx.shadowColor = color;
+      ctx.beginPath(); ctx.arc(drawAnchor.x, drawAnchor.y, 4, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
-
-      // Inner white dot
       ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(drawAnchor.x, drawAnchor.y, 1.5, 0, Math.PI * 2);
-      ctx.fill();
-      // ------------------------------------
+      ctx.beginPath(); ctx.arc(drawAnchor.x, drawAnchor.y, 1.5, 0, Math.PI * 2); ctx.fill();
 
       // Ball
       ctx.fillStyle = color;
@@ -342,8 +334,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
 
   return (
     <div ref={containerRef} className="relative w-full h-full cursor-none overflow-hidden bg-black" onMouseMove={handleMouseMove} onTouchMove={handleTouchMove}>
-      <canvas ref={canvasRef} width={dimensions.width} height={dimensions.height} />
-      <div className="absolute inset-0 pointer-events-none">
+      <Background3D stretch={currentStretch} />
+      <canvas 
+        ref={canvasRef} 
+        width={dimensions.width} 
+        height={dimensions.height} 
+        className="relative z-10 block"
+      />
+      <div className="absolute inset-0 pointer-events-none z-20">
         {fireworks.map(f => <FireworkEffect key={f.id} x={f.x} y={f.y} grade={f.grade} />)}
       </div>
       <UIOverlay refs={uiRefs} />

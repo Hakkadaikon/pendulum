@@ -10,17 +10,16 @@
     body {
       margin: 0;
       padding: 0;
-      background-color: #0a0a0a;
+      background-color: #000;
       overflow: hidden;
       user-select: none;
       font-family: 'Courier New', Courier, monospace;
-      touch-action: none; /* Prevent scrolling and pull-to-refresh */
+      touch-action: none;
     }
     canvas {
       display: block;
     }
 
-    /* Firework Animations */
     @keyframes particle-fly {
       0% { transform: translate(0, 0); opacity: 1; }
       100% { transform: translate(var(--tw-translate-x), var(--tw-translate-y)); opacity: 0; }
@@ -35,7 +34,6 @@
       animation: particle-fly 0.8s ease-out forwards;
     }
 
-    /* Evaluation Text Animation */
     @keyframes eval-fade-out {
       0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); }
       10% { opacity: 1; transform: translate(-50%, -20px) scale(1.2); }
@@ -46,7 +44,6 @@
     .eval-text {
       position: absolute;
       pointer-events: none;
-      /* Japanese Calligraphy (Gyoshotai) style fonts */
       font-family: "Hiragino Mincho ProN", "MS PMincho", "serif", "cursive";
       font-weight: 900;
       white-space: nowrap;
@@ -61,7 +58,8 @@
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3"
+    "react": "https://esm.sh/react@^19.2.3",
+    "three": "https://esm.sh/three@0.170.0"
   }
 }
 </script>
