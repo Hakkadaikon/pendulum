@@ -1,0 +1,72 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pendulum Rubber Action</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0a0a0a;
+      overflow: hidden;
+      user-select: none;
+      font-family: 'Courier New', Courier, monospace;
+    }
+    canvas {
+      display: block;
+      cursor: none;
+    }
+
+    /* Firework Animations */
+    @keyframes particle-fly {
+      0% { transform: translate(0, 0); opacity: 1; }
+      100% { transform: translate(var(--tw-translate-x), var(--tw-translate-y)); opacity: 0; }
+    }
+
+    .firework-particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      pointer-events: none;
+      animation: particle-fly 0.8s ease-out forwards;
+    }
+
+    /* Evaluation Text Animation */
+    @keyframes eval-fade-out {
+      0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); }
+      10% { opacity: 1; transform: translate(-50%, -20px) scale(1.2); }
+      30% { opacity: 1; transform: translate(-50%, -30px) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -80px) scale(0.8); }
+    }
+
+    .eval-text {
+      position: absolute;
+      pointer-events: none;
+      /* Japanese Calligraphy (Gyoshotai) style fonts */
+      font-family: "Hiragino Mincho ProN", "MS PMincho", "serif", "cursive";
+      font-weight: 900;
+      white-space: nowrap;
+      animation: eval-fade-out 2s ease-out forwards;
+      z-index: 50;
+      text-shadow: 0 0 10px rgba(0,0,0,0.8), 0 0 20px currentColor;
+    }
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+</head>
+<body>
+  <div id="root"></div>
+</body>
+</html>
