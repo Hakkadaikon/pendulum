@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Pendulum Rubber Action</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -14,10 +14,10 @@
       overflow: hidden;
       user-select: none;
       font-family: 'Courier New', Courier, monospace;
+      touch-action: none; /* Prevent scrolling and pull-to-refresh */
     }
     canvas {
       display: block;
-      cursor: none;
     }
 
     /* Firework Animations */

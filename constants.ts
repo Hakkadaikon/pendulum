@@ -22,9 +22,6 @@ export const TARGET_COLORS = {
   [TargetType.RED]: '#f87171'
 };
 
-export const CANVAS_WIDTH = 800;
-export const CANVAS_HEIGHT = 600;
-
 export const BALL_INITIAL_RADIUS = 10;
 export const BALL_INITIAL_MASS = 1.0;
 export const RUBBER_INITIAL_MAX_LEN = 200;

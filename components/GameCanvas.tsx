@@ -3,8 +3,6 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { 
   TICK_TIME, 
   TICK_RATE, 
-  CANVAS_WIDTH, 
-  CANVAS_HEIGHT, 
   BALL_INITIAL_RADIUS, 
   BALL_INITIAL_MASS, 
   RUBBER_INITIAL_MAX_LEN,
@@ -32,13 +30,14 @@ interface GameCanvasProps {
 const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
   
   // Track if the mouse has moved yet to prevent initial warp
   const hasMoved = useRef(false);
   
   // Physics State Refs
-  const anchorPos = useRef<Vector2D>({ x: CANVAS_WIDTH / 2, y: 100 });
-  const ballPos = useRef<Vector2D>({ x: CANVAS_WIDTH / 2, y: 200 });
+  const anchorPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 100 });
+  const ballPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 200 });
   const ballVel = useRef<Vector2D>({ x: 0, y: 0 });
   
   const statsRef = useRef<GameStats>({
@@ -58,13 +57,22 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
   const [currentStats, setCurrentStats] = useState<GameStats>(statsRef.current);
   const [fireworks, setFireworks] = useState<FireworkInstance[]>([]);
 
+  // Update dimensions on resize
+  useEffect(() => {
+    const handleResize = () => {
+      setDimensions({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const spawnTarget = useCallback((type: TargetType = TargetType.YELLOW) => {
     const newTarget: Target = {
       id: Math.random().toString(36).substr(2, 9),
       type,
       pos: {
-        x: 50 + Math.random() * (CANVAS_WIDTH - 100),
-        y: 100 + Math.random() * (CANVAS_HEIGHT - 200)
+        x: 50 + Math.random() * (window.innerWidth - 100),
+        y: 100 + Math.random() * (window.innerHeight - 200)
       },
       radius: 15
     };
@@ -72,27 +80,36 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
   }, []);
 
   useEffect(() => {
+    // Initial spawn
     spawnTarget();
     spawnTarget();
     spawnTarget();
   }, [spawnTarget]);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const updateInputPos = (clientX: number, clientY: number) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const newX = e.clientX - rect.left;
-    const newY = e.clientY - rect.top;
+    const newX = clientX - rect.left;
+    const newY = clientY - rect.top;
 
     if (!hasMoved.current) {
-      // First move: Teleport anchor AND ball together to avoid sudden spring force
       const offsetX = ballPos.current.x - anchorPos.current.x;
       const offsetY = ballPos.current.y - anchorPos.current.y;
-      
       anchorPos.current = { x: newX, y: newY };
       ballPos.current = { x: newX + offsetX, y: newY + offsetY };
       hasMoved.current = true;
     } else {
       anchorPos.current = { x: newX, y: newY };
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    updateInputPos(e.clientX, e.clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches[0]) {
+      updateInputPos(e.touches[0].clientX, e.touches[0].clientY);
     }
   };
 
@@ -102,7 +119,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
     let tickAccumulator = 0;
 
     const updatePhysics = () => {
-      // Don't update physics until the player has engaged with the mouse
       if (!hasMoved.current) return;
 
       const stats = statsRef.current;
@@ -133,19 +149,20 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       ballPos.current.x += ballVel.current.x;
       ballPos.current.y += ballVel.current.y;
 
+      // Dynamic collision bounds
       if (ballPos.current.x - stats.ballRadius < 0) {
         ballPos.current.x = stats.ballRadius;
         ballVel.current.x *= -settings.collisionDamp;
-      } else if (ballPos.current.x + stats.ballRadius > CANVAS_WIDTH) {
-        ballPos.current.x = CANVAS_WIDTH - stats.ballRadius;
+      } else if (ballPos.current.x + stats.ballRadius > window.innerWidth) {
+        ballPos.current.x = window.innerWidth - stats.ballRadius;
         ballVel.current.x *= -settings.collisionDamp;
       }
 
       if (ballPos.current.y - stats.ballRadius < 0) {
         ballPos.current.y = stats.ballRadius;
         ballVel.current.y *= -settings.collisionDamp;
-      } else if (ballPos.current.y + stats.ballRadius > CANVAS_HEIGHT) {
-        ballPos.current.y = CANVAS_HEIGHT - stats.ballRadius;
+      } else if (ballPos.current.y + stats.ballRadius > window.innerHeight) {
+        ballPos.current.y = window.innerHeight - stats.ballRadius;
         ballVel.current.y *= -settings.collisionDamp;
       }
 
@@ -244,24 +261,26 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       const ctx = canvasRef.current?.getContext('2d');
       if (!ctx) return;
 
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
       ctx.fillStyle = '#0a0a0a';
-      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.fillRect(0, 0, w, h);
 
       ctx.strokeStyle = '#1a1a1a';
       ctx.lineWidth = 1;
-      for (let i = 0; i < CANVAS_WIDTH; i += 50) {
-        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke();
+      for (let i = 0; i < w; i += 50) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke();
       }
-      for (let i = 0; i < CANVAS_HEIGHT; i += 50) {
-        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke();
+      for (let i = 0; i < h; i += 50) {
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(w, i); ctx.stroke();
       }
 
-      // If mouse hasn't moved, draw a subtle hint or nothing to avoid the jumpy visual
       if (!hasMoved.current) {
-        ctx.fillStyle = '#1e293b';
-        ctx.font = 'bold 20px sans-serif';
+        ctx.fillStyle = '#334155';
+        ctx.font = 'bold 24px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('MOVE MOUSE TO START', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+        ctx.fillText('TOUCH OR MOVE TO START', w / 2, h / 2);
         return;
       }
 
@@ -322,14 +341,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
   return (
     <div 
       ref={containerRef}
-      className="relative cursor-none border-4 border-zinc-800 rounded-lg overflow-hidden bg-black shadow-2xl"
+      className="relative w-full h-full cursor-none overflow-hidden bg-black"
       onMouseMove={handleMouseMove}
-      style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
+      onTouchMove={handleTouchMove}
     >
       <canvas 
         ref={canvasRef} 
-        width={CANVAS_WIDTH} 
-        height={CANVAS_HEIGHT}
+        width={dimensions.width} 
+        height={dimensions.height}
       />
       
       {/* CSS Effects Overlay */}
