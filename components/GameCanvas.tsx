@@ -32,132 +32,121 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
   
-  // Track if the mouse has moved yet to prevent initial warp
+  const isPC = dimensions.width > 768;
+  const wallWidth = isPC ? dimensions.width * 0.2 : 0;
+  const activeMinX = wallWidth;
+  const activeMaxX = dimensions.width - wallWidth;
+
   const hasMoved = useRef(false);
   
-  // Physics State Refs
+  const targetInputPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 100 });
   const anchorPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 100 });
+  const prevAnchorPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 100 });
+  
   const ballPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 200 });
+  const prevBallPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 200 });
   const ballVel = useRef<Vector2D>({ x: 0, y: 0 });
   
   const statsRef = useRef<GameStats>({
-    score: 0,
-    combo: 0,
-    perfectStreak: 0,
-    timeLeft: INITIAL_TIME,
-    rubberMaxLoad: RUBBER_INITIAL_MAX_LEN,
-    ballMass: BALL_INITIAL_MASS,
-    ballRadius: BALL_INITIAL_RADIUS,
-    stretch: 0,
-    dangerTime: 0
+    score: 0, combo: 0, perfectStreak: 0, timeLeft: INITIAL_TIME,
+    rubberMaxLoad: RUBBER_INITIAL_MAX_LEN, ballMass: BALL_INITIAL_MASS,
+    ballRadius: BALL_INITIAL_RADIUS, stretch: 0, dangerTime: 0
   });
 
   const targetsRef = useRef<Target[]>([]);
-  const lastTargetUpdate = useRef<number>(0);
-  const [currentStats, setCurrentStats] = useState<GameStats>(statsRef.current);
   const [fireworks, setFireworks] = useState<FireworkInstance[]>([]);
 
-  // Update dimensions on resize
+  const uiRefs = {
+    score: useRef<HTMLDivElement>(null),
+    timer: useRef<HTMLDivElement>(null),
+    combo: useRef<HTMLDivElement>(null),
+    perfect: useRef<HTMLDivElement>(null),
+    gauge: useRef<HTMLDivElement>(null),
+    gaugeContainer: useRef<HTMLDivElement>(null),
+    tensionLabel: useRef<HTMLSpanElement>(null),
+    tensionValue: useRef<HTMLDivElement>(null),
+    dangerBorder: useRef<HTMLDivElement>(null),
+  };
+
   useEffect(() => {
-    const handleResize = () => {
-      setDimensions({ width: window.innerWidth, height: window.innerHeight });
-    };
+    const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const spawnTarget = useCallback((type: TargetType = TargetType.YELLOW) => {
+    const margin = 50;
     const newTarget: Target = {
       id: Math.random().toString(36).substr(2, 9),
       type,
       pos: {
-        x: 50 + Math.random() * (window.innerWidth - 100),
+        x: activeMinX + margin + Math.random() * (activeMaxX - activeMinX - margin * 2),
         y: 100 + Math.random() * (window.innerHeight - 200)
       },
       radius: 15
     };
     targetsRef.current = [...targetsRef.current, newTarget];
-  }, []);
+  }, [activeMinX, activeMaxX]);
 
   useEffect(() => {
-    // Initial spawn
-    spawnTarget();
-    spawnTarget();
-    spawnTarget();
+    spawnTarget(); spawnTarget(); spawnTarget();
   }, [spawnTarget]);
 
   const updateInputPos = (clientX: number, clientY: number) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const newX = clientX - rect.left;
-    const newY = clientY - rect.top;
-
+    targetInputPos.current = { x: clientX - rect.left, y: clientY - rect.top };
     if (!hasMoved.current) {
-      const offsetX = ballPos.current.x - anchorPos.current.x;
-      const offsetY = ballPos.current.y - anchorPos.current.y;
-      anchorPos.current = { x: newX, y: newY };
-      ballPos.current = { x: newX + offsetX, y: newY + offsetY };
+      anchorPos.current = { ...targetInputPos.current };
+      prevAnchorPos.current = { ...targetInputPos.current };
+      ballPos.current = { x: anchorPos.current.x, y: anchorPos.current.y + 100 };
+      prevBallPos.current = { ...ballPos.current };
       hasMoved.current = true;
-    } else {
-      anchorPos.current = { x: newX, y: newY };
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    updateInputPos(e.clientX, e.clientY);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches[0]) {
-      updateInputPos(e.touches[0].clientX, e.touches[0].clientY);
-    }
-  };
+  const handleMouseMove = (e: React.MouseEvent) => updateInputPos(e.clientX, e.clientY);
+  const handleTouchMove = (e: React.TouchEvent) => e.touches[0] && updateInputPos(e.touches[0].clientX, e.touches[0].clientY);
 
   useEffect(() => {
     let animationFrameId: number;
-    let lastTickTime = performance.now();
-    let tickAccumulator = 0;
+    let lastTime = performance.now();
+    let accumulator = 0;
 
     const updatePhysics = () => {
       if (!hasMoved.current) return;
-
       const stats = statsRef.current;
       if (stats.timeLeft <= 0) return;
+
+      prevAnchorPos.current = { ...anchorPos.current };
+      prevBallPos.current = { ...ballPos.current };
+
+      anchorPos.current.x += (targetInputPos.current.x - anchorPos.current.x) * 0.35;
+      anchorPos.current.y += (targetInputPos.current.y - anchorPos.current.y) * 0.35;
 
       const dx = ballPos.current.x - anchorPos.current.x;
       const dy = ballPos.current.y - anchorPos.current.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      
-      const stretchRatio = dist / stats.rubberMaxLoad;
-      stats.stretch = stretchRatio;
+      stats.stretch = dist / stats.rubberMaxLoad;
 
       const fRubber = settings.rubberK * (dist - settings.naturalLen);
       const angle = Math.atan2(dy, dx);
-      
       const ax = -(fRubber * Math.cos(angle)) / stats.ballMass;
       const ay = (stats.ballMass * settings.gravity - fRubber * Math.sin(angle)) / stats.ballMass;
 
-      ballVel.current.x += ax;
-      ballVel.current.y += ay;
-
-      const speed = Math.sqrt(ballVel.current.x**2 + ballVel.current.y**2);
-      if (speed > 25) {
-        ballVel.current.x = (ballVel.current.x / speed) * 25;
-        ballVel.current.y = (ballVel.current.y / speed) * 25;
-      }
+      ballVel.current.x = (ballVel.current.x + ax) * 0.994;
+      ballVel.current.y = (ballVel.current.y + ay) * 0.994;
 
       ballPos.current.x += ballVel.current.x;
       ballPos.current.y += ballVel.current.y;
 
-      // Dynamic collision bounds
-      if (ballPos.current.x - stats.ballRadius < 0) {
-        ballPos.current.x = stats.ballRadius;
+      if (ballPos.current.x - stats.ballRadius < activeMinX) {
+        ballPos.current.x = activeMinX + stats.ballRadius;
         ballVel.current.x *= -settings.collisionDamp;
-      } else if (ballPos.current.x + stats.ballRadius > window.innerWidth) {
-        ballPos.current.x = window.innerWidth - stats.ballRadius;
+      } else if (ballPos.current.x + stats.ballRadius > activeMaxX) {
+        ballPos.current.x = activeMaxX - stats.ballRadius;
         ballVel.current.x *= -settings.collisionDamp;
       }
-
       if (ballPos.current.y - stats.ballRadius < 0) {
         ballPos.current.y = stats.ballRadius;
         ballVel.current.y *= -settings.collisionDamp;
@@ -169,196 +158,195 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       targetsRef.current.forEach((t, index) => {
         const tdx = ballPos.current.x - t.pos.x;
         const tdy = ballPos.current.y - t.pos.y;
-        const tdist = Math.sqrt(tdx * tdx + tdy * tdy);
-        
-        if (tdist < stats.ballRadius + t.radius) {
-          handleHit(t, index);
-        }
+        if (Math.sqrt(tdx*tdx + tdy*tdy) < stats.ballRadius + t.radius) handleHit(t, index);
       });
 
       if (stats.stretch > DANGER_THRESHOLD) {
         stats.dangerTime += 1 / TICK_RATE;
-        stats.rubberMaxLoad -= 0.05;
-        if (stats.dangerTime > BREAK_TIME_LIMIT) {
-          stats.timeLeft = 0;
-        }
+        stats.rubberMaxLoad -= 0.02;
+        if (stats.dangerTime > BREAK_TIME_LIMIT) stats.timeLeft = 0;
       } else {
-        stats.dangerTime = Math.max(0, stats.dangerTime - 0.1);
+        stats.dangerTime = Math.max(0, stats.dangerTime - 0.12);
       }
 
       stats.timeLeft -= 1 / TICK_RATE;
-      if (stats.timeLeft <= 0) {
-        onGameOver(stats.score);
-      }
-
-      if (performance.now() - lastTargetUpdate.current > 50) {
-        setCurrentStats({ ...stats });
-        lastTargetUpdate.current = performance.now();
-      }
+      if (stats.timeLeft <= 0) onGameOver(stats.score);
     };
 
     const handleHit = (t: Target, index: number) => {
       const stats = statsRef.current;
       stats.combo += 1;
-      
       let grade: EvalGrade = 'FAIL';
-      let multiplier = 1;
-      
+      let mult = 0;
       const s = stats.stretch;
-      if (s >= 0.9) {
-        grade = 'PERFECT';
-        stats.perfectStreak += 1;
-        multiplier = Math.min(200, stats.perfectStreak * 10);
-      } else if (s >= 0.7) {
-        grade = 'GREAT';
-        stats.perfectStreak = 0;
-        multiplier = 5;
-      } else if (s >= 0.4) {
-        grade = 'GOOD';
-        stats.perfectStreak = 0;
-        multiplier = 1;
-      } else if (s > 0.05) {
-        grade = 'OK';
-        stats.perfectStreak = 0;
-        multiplier = 1;
-      } else {
-        grade = 'FAIL';
-        stats.perfectStreak = 0;
-        multiplier = 0;
-      }
+
+      if (s >= 0.9) { grade = 'PERFECT'; stats.perfectStreak += 1; mult = Math.min(200, stats.perfectStreak * 10); }
+      else if (s >= 0.7) { grade = 'GREAT'; stats.perfectStreak = 0; mult = 5; }
+      else if (s >= 0.4) { grade = 'GOOD'; stats.perfectStreak = 0; mult = 1; }
+      else if (s > 0.05) { grade = 'OK'; stats.perfectStreak = 0; mult = 1; }
 
       const fwId = Math.random().toString(36).substr(2, 9);
       setFireworks(prev => [...prev, { id: fwId, x: t.pos.x, y: t.pos.y, grade }]);
-      setTimeout(() => {
-        setFireworks(prev => prev.filter(f => f.id !== fwId));
-      }, 2000);
+      setTimeout(() => setFireworks(p => p.filter(f => f.id !== fwId)), 1500);
 
-      let points = 100 * multiplier;
-      stats.score += points;
-
-      if (t.type === TargetType.YELLOW) {
-        stats.timeLeft += 1;
-      } else if (t.type === TargetType.GREEN) {
-        stats.rubberMaxLoad = Math.min(400, stats.rubberMaxLoad + 15);
-        stats.timeLeft += 2;
-      } else if (t.type === TargetType.RED) {
-        stats.ballMass += 0.2;
-        stats.ballRadius += 2;
-        stats.timeLeft += 3;
-      }
+      stats.score += 100 * mult;
+      if (t.type === TargetType.YELLOW) stats.timeLeft += 1.0;
+      else if (t.type === TargetType.GREEN) { stats.rubberMaxLoad = Math.min(400, stats.rubberMaxLoad + 15); stats.timeLeft += 2.0; }
+      else if (t.type === TargetType.RED) { stats.ballMass += 0.2; stats.ballRadius += 2; stats.timeLeft += 3.0; }
 
       targetsRef.current.splice(index, 1);
-      
       const roll = Math.random();
-      let nextType = TargetType.YELLOW;
-      if (roll > 0.92) nextType = TargetType.RED;
-      else if (roll > 0.8) nextType = TargetType.GREEN;
-      
-      spawnTarget(nextType);
+      spawnTarget(roll > 0.92 ? TargetType.RED : roll > 0.8 ? TargetType.GREEN : TargetType.YELLOW);
     };
 
-    const draw = () => {
+    const updateUI = () => {
+      const s = statsRef.current;
+      if (uiRefs.score.current) uiRefs.score.current.textContent = s.score.toLocaleString();
+      if (uiRefs.timer.current) {
+        uiRefs.timer.current.textContent = Math.max(0, s.timeLeft).toFixed(1);
+        uiRefs.timer.current.className = s.timeLeft < 10 ? 'text-xl md:text-3xl font-black text-red-500 animate-pulse' : 'text-xl md:text-3xl font-black text-white';
+      }
+      if (uiRefs.combo.current) {
+        uiRefs.combo.current.style.display = s.combo > 0 ? 'block' : 'none';
+        uiRefs.combo.current.textContent = `${s.combo} Hits`;
+      }
+      if (uiRefs.perfect.current) {
+        uiRefs.perfect.current.style.display = s.perfectStreak > 0 ? 'block' : 'none';
+        uiRefs.perfect.current.textContent = `Perfect x${s.perfectStreak}`;
+      }
+      const stretchPercent = Math.min(100, s.stretch * 100);
+      const isDanger = s.stretch > 1.0;
+      const isPerfect = s.stretch >= 0.9 && s.stretch <= 1.0;
+
+      if (uiRefs.gauge.current) {
+        uiRefs.gauge.current.style.width = `${stretchPercent}%`;
+        uiRefs.gauge.current.className = `h-full transition-all duration-75 ${isDanger ? 'bg-red-500 animate-pulse' : isPerfect ? 'bg-yellow-400' : 'bg-blue-500'}`;
+      }
+      if (uiRefs.tensionValue.current) uiRefs.tensionValue.current.textContent = `${Math.round(stretchPercent)}%`;
+      if (uiRefs.tensionLabel.current) {
+        uiRefs.tensionLabel.current.textContent = isDanger ? 'WARNING' : isPerfect ? 'PERFECT' : 'TENSION';
+        uiRefs.tensionLabel.current.className = `text-[10px] md:text-xs font-bold uppercase tracking-widest ${isDanger ? 'text-red-500' : 'text-zinc-500'}`;
+      }
+      if (uiRefs.dangerBorder.current) uiRefs.dangerBorder.current.style.opacity = isDanger ? '1' : '0';
+    };
+
+    const draw = (alpha: number) => {
       const ctx = canvasRef.current?.getContext('2d');
       if (!ctx) return;
+      const w = dimensions.width, h = dimensions.height;
 
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-
-      ctx.fillStyle = '#0a0a0a';
+      ctx.fillStyle = 'rgba(10, 10, 10, 0.45)';
       ctx.fillRect(0, 0, w, h);
 
       ctx.strokeStyle = '#1a1a1a';
       ctx.lineWidth = 1;
-      for (let i = 0; i < w; i += 50) {
-        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke();
-      }
-      for (let i = 0; i < h; i += 50) {
-        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(w, i); ctx.stroke();
+      ctx.beginPath();
+      for (let i = 0; i < w; i += 50) { ctx.moveTo(i, 0); ctx.lineTo(i, h); }
+      for (let i = 0; i < h; i += 50) { ctx.moveTo(0, i); ctx.lineTo(w, i); }
+      ctx.stroke();
+
+      if (isPC) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+        ctx.fillRect(0, 0, activeMinX, h);
+        ctx.fillRect(activeMaxX, 0, activeMinX, h);
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.2)';
+        ctx.setLineDash([10, 5]);
+        ctx.beginPath();
+        ctx.moveTo(activeMinX, 0); ctx.lineTo(activeMinX, h);
+        ctx.moveTo(activeMaxX, 0); ctx.lineTo(activeMaxX, h);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
 
       if (!hasMoved.current) {
-        ctx.fillStyle = '#334155';
-        ctx.font = 'bold 24px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('TOUCH OR MOVE TO START', w / 2, h / 2);
-        return;
+        ctx.fillStyle = '#475569'; ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('MOVE TO INITIALIZE SYSTEM', w / 2, h / 2); return;
       }
 
-      const stats = statsRef.current;
-      ctx.lineWidth = 3;
-      const stretchColor = stats.stretch > 1 ? '#ef4444' : stats.stretch > 0.8 ? '#f59e0b' : '#3b82f6';
-      ctx.strokeStyle = stretchColor;
-      ctx.setLineDash(stats.stretch > 1 ? [5, 5] : []);
-      ctx.beginPath();
-      ctx.moveTo(anchorPos.current.x, anchorPos.current.y);
-      ctx.lineTo(ballPos.current.x, ballPos.current.y);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      const drawAnchor = {
+        x: prevAnchorPos.current.x + (anchorPos.current.x - prevAnchorPos.current.x) * alpha,
+        y: prevAnchorPos.current.y + (anchorPos.current.y - prevAnchorPos.current.y) * alpha
+      };
+      const drawBall = {
+        x: prevBallPos.current.x + (ballPos.current.x - prevBallPos.current.x) * alpha,
+        y: prevBallPos.current.y + (ballPos.current.y - prevBallPos.current.y) * alpha
+      };
 
-      ctx.strokeStyle = '#e2e8f0';
-      ctx.lineWidth = 4;
+      const s = statsRef.current;
+      const color = s.stretch > 1 ? '#ef4444' : s.stretch > 0.9 ? '#facc15' : '#3b82f6';
+      
+      // Rubber line
+      ctx.lineWidth = 2 + (s.stretch * 2);
+      ctx.strokeStyle = color;
+      ctx.beginPath(); ctx.moveTo(drawAnchor.x, drawAnchor.y); ctx.lineTo(drawBall.x, drawBall.y); ctx.stroke();
+
+      // --- NEW ENHANCED ANCHOR DRAWING ---
+      // Outer ring
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(anchorPos.current.x, anchorPos.current.y, 10, 0, Math.PI * 2);
+      ctx.arc(drawAnchor.x, drawAnchor.y, 8, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.fillStyle = '#3b82f6';
-      ctx.shadowBlur = stats.stretch > 0.9 ? 20 : 0;
-      ctx.shadowColor = '#3b82f6';
+      // Glowing Core
+      ctx.fillStyle = color;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = color;
       ctx.beginPath();
-      ctx.arc(ballPos.current.x, ballPos.current.y, stats.ballRadius, 0, Math.PI * 2);
+      ctx.arc(drawAnchor.x, drawAnchor.y, 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
 
+      // Inner white dot
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(drawAnchor.x, drawAnchor.y, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      // ------------------------------------
+
+      // Ball
+      ctx.fillStyle = color;
+      if (s.stretch > 0.9) { ctx.shadowBlur = 15; ctx.shadowColor = color; }
+      ctx.beginPath(); ctx.arc(drawBall.x, drawBall.y, s.ballRadius, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Targets
       targetsRef.current.forEach(t => {
         ctx.fillStyle = TARGET_COLORS[t.type];
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = TARGET_COLORS[t.type];
-        ctx.beginPath();
-        ctx.arc(t.pos.x, t.pos.y, t.radius, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.shadowBlur = 12; ctx.shadowColor = TARGET_COLORS[t.type];
+        ctx.beginPath(); ctx.arc(t.pos.x, t.pos.y, t.radius, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
       });
+
+      updateUI();
     };
 
     const loop = (time: number) => {
-      const deltaTime = time - lastTickTime;
-      lastTickTime = time;
-      tickAccumulator += deltaTime;
+      const delta = time - lastTime;
+      lastTime = time;
+      accumulator += delta;
 
-      while (tickAccumulator >= TICK_TIME) {
+      while (accumulator >= TICK_TIME) {
         updatePhysics();
-        tickAccumulator -= TICK_TIME;
+        accumulator -= TICK_TIME;
       }
 
-      draw();
+      const alpha = accumulator / TICK_TIME;
+      draw(alpha);
       animationFrameId = requestAnimationFrame(loop);
     };
 
     animationFrameId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [settings, onGameOver, spawnTarget]);
+  }, [settings, onGameOver, spawnTarget, dimensions, isPC, activeMinX, activeMaxX]);
 
   return (
-    <div 
-      ref={containerRef}
-      className="relative w-full h-full cursor-none overflow-hidden bg-black"
-      onMouseMove={handleMouseMove}
-      onTouchMove={handleTouchMove}
-    >
-      <canvas 
-        ref={canvasRef} 
-        width={dimensions.width} 
-        height={dimensions.height}
-      />
-      
-      {/* CSS Effects Overlay */}
+    <div ref={containerRef} className="relative w-full h-full cursor-none overflow-hidden bg-black" onMouseMove={handleMouseMove} onTouchMove={handleTouchMove}>
+      <canvas ref={canvasRef} width={dimensions.width} height={dimensions.height} />
       <div className="absolute inset-0 pointer-events-none">
-        {fireworks.map(f => (
-          <FireworkEffect key={f.id} x={f.x} y={f.y} grade={f.grade} />
-        ))}
+        {fireworks.map(f => <FireworkEffect key={f.id} x={f.x} y={f.y} grade={f.grade} />)}
       </div>
-
-      <UIOverlay stats={currentStats} />
+      <UIOverlay refs={uiRefs} />
     </div>
   );
 };

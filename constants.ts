@@ -1,12 +1,13 @@
 
 import { GameSettings, TargetType } from './types';
 
-export const TICK_RATE = 40; // 40 FPS logic
+export const TICK_RATE = 120; // Increased from 40 to 120 for smoother movement
 export const TICK_TIME = 1000 / TICK_RATE;
 
 export const DEFAULT_SETTINGS: GameSettings = {
-  gravity: 0.2,
-  rubberK: 0.008,
+  // Constants scaled for 120fps (roughly 1/9th of 40fps values for quadratic integration)
+  gravity: 0.022, 
+  rubberK: 0.0009,
   naturalLen: 0.25,
   collisionDamp: 0.7,
   isExperimental: false
