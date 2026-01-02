@@ -48,6 +48,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
   const ballPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 200 });
   const prevBallPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 200 });
   const ballVel = useRef<Vector2D>({ x: 0, y: 0 });
+  const ballRotation = useRef(0);
+  const targetRotation = useRef(0);
   
   const statsRef = useRef<GameStats>({
     score: 0, combo: 0, perfectStreak: 0, timeLeft: INITIAL_TIME,
@@ -139,6 +141,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
 
       ballVel.current.x = (ballVel.current.x + ax) * 0.994;
       ballVel.current.y = (ballVel.current.y + ay) * 0.994;
+
+      // Update main ball rotation based on velocity
+      const speed = Math.sqrt(ballVel.current.x**2 + ballVel.current.y**2);
+      ballRotation.current += speed * 0.05;
+
+      // Update global target rotation
+      targetRotation.current += 0.04;
 
       ballPos.current.x += ballVel.current.x;
       ballPos.current.y += ballVel.current.y;
@@ -232,7 +241,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       }
       if (uiRefs.dangerBorder.current) uiRefs.dangerBorder.current.style.opacity = isDanger ? '1' : '0';
       
-      // Sync stretch for 3D background (throttled)
       if (performance.now() - lastStatsSync > 50) {
         setCurrentStretch(s.stretch);
         lastStatsSync = performance.now();
@@ -244,7 +252,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       if (!ctx) return;
       const w = dimensions.width, h = dimensions.height;
 
-      // Transparent Trail Logic: Fade existing content instead of filling black
       ctx.globalCompositeOperation = 'destination-out';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.fillRect(0, 0, w, h);
@@ -285,7 +292,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       ctx.strokeStyle = color;
       ctx.beginPath(); ctx.moveTo(drawAnchor.x, drawAnchor.y); ctx.lineTo(drawBall.x, drawBall.y); ctx.stroke();
 
-      // Enhanced Anchor
+      // Anchor
       ctx.strokeStyle = '#f8fafc';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(drawAnchor.x, drawAnchor.y, 8, 0, Math.PI * 2); ctx.stroke();
@@ -296,18 +303,57 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       ctx.fillStyle = '#ffffff';
       ctx.beginPath(); ctx.arc(drawAnchor.x, drawAnchor.y, 1.5, 0, Math.PI * 2); ctx.fill();
 
-      // Ball
-      ctx.fillStyle = color;
-      if (s.stretch > 0.9) { ctx.shadowBlur = 15; ctx.shadowColor = color; }
-      ctx.beginPath(); ctx.arc(drawBall.x, drawBall.y, s.ballRadius, 0, Math.PI * 2); ctx.fill();
+      // Ball (Main Pendulum Ball)
+      ctx.save();
+      ctx.translate(drawBall.x, drawBall.y);
+      ctx.rotate(ballRotation.current);
+      const mainBallGrad = ctx.createRadialGradient(-s.ballRadius * 0.3, -s.ballRadius * 0.3, s.ballRadius * 0.1, 0, 0, s.ballRadius);
+      mainBallGrad.addColorStop(0, '#ffffff');
+      mainBallGrad.addColorStop(0.3, color);
+      mainBallGrad.addColorStop(1, '#000000');
+      if (s.stretch > 0.9) { ctx.shadowBlur = 20; ctx.shadowColor = color; }
+      ctx.fillStyle = mainBallGrad;
+      ctx.beginPath(); ctx.arc(0, 0, s.ballRadius, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
+      // Pattern
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'; ctx.lineWidth = 1; ctx.beginPath();
+      ctx.moveTo(-s.ballRadius * 0.8, 0); ctx.lineTo(s.ballRadius * 0.8, 0);
+      ctx.moveTo(0, -s.ballRadius * 0.8); ctx.lineTo(0, s.ballRadius * 0.8);
+      ctx.stroke();
+      ctx.restore();
 
-      // Targets
+      // Targets (3D Spheres rotating in place)
       targetsRef.current.forEach(t => {
-        ctx.fillStyle = TARGET_COLORS[t.type];
-        ctx.shadowBlur = 12; ctx.shadowColor = TARGET_COLORS[t.type];
-        ctx.beginPath(); ctx.arc(t.pos.x, t.pos.y, t.radius, 0, Math.PI * 2); ctx.fill();
+        const tColor = TARGET_COLORS[t.type];
+        ctx.save();
+        ctx.translate(t.pos.x, t.pos.y);
+        ctx.rotate(targetRotation.current);
+
+        // Spherical shading
+        const targetGrad = ctx.createRadialGradient(
+          -t.radius * 0.3, -t.radius * 0.3, t.radius * 0.1,
+          0, 0, t.radius
+        );
+        targetGrad.addColorStop(0, '#ffffff'); // Glint
+        targetGrad.addColorStop(0.3, tColor);   // Core color
+        targetGrad.addColorStop(1, '#000000'); // Ambient occlusion/Shadow
+
+        ctx.shadowBlur = 15; ctx.shadowColor = tColor;
+        ctx.fillStyle = targetGrad;
+        ctx.beginPath(); ctx.arc(0, 0, t.radius, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
+
+        // Visual pattern to show rotation
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, t.radius * 0.8, t.radius * 0.2, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(0, 0, t.radius * 0.2, t.radius * 0.8, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
       });
 
       updateUI();
