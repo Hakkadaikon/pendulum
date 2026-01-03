@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
 export const INITIAL_TIME = 60;
 export const DANGER_THRESHOLD = 1.0; // 100%
 export const BREAK_TIME_LIMIT = 0.25; // seconds
+export const COMBO_TIME_LIMIT = 5.0; // seconds
 
 export const TARGET_COLORS = {
   [TargetType.YELLOW]: '#fbbf24',

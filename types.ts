@@ -35,6 +35,7 @@ export interface GameSettings {
 export interface GameStats {
   score: number;
   combo: number;
+  comboTimer: number; // Remaining time for combo in seconds
   perfectStreak: number;
   timeLeft: number;
   rubberMaxLoad: number; // Current maximum allowed stretch

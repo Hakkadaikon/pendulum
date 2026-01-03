@@ -9,7 +9,8 @@ import {
   INITIAL_TIME,
   DANGER_THRESHOLD,
   BREAK_TIME_LIMIT,
-  TARGET_COLORS
+  TARGET_COLORS,
+  COMBO_TIME_LIMIT
 } from '../constants';
 import { GameSettings, Vector2D, Target, TargetType, GameStats } from '../types';
 import UIOverlay from './UIOverlay';
@@ -54,7 +55,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
   const targetRotation = useRef(0);
   
   const statsRef = useRef<GameStats>({
-    score: 0, combo: 0, perfectStreak: 0, timeLeft: INITIAL_TIME,
+    score: 0, combo: 0, comboTimer: 0, perfectStreak: 0, timeLeft: INITIAL_TIME,
     rubberMaxLoad: RUBBER_INITIAL_MAX_LEN, ballMass: BALL_INITIAL_MASS,
     ballRadius: BALL_INITIAL_RADIUS, stretch: 0, dangerTime: 0
   });
@@ -66,6 +67,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
     score: useRef<HTMLDivElement>(null),
     timer: useRef<HTMLDivElement>(null),
     combo: useRef<HTMLDivElement>(null),
+    comboTimerBar: useRef<HTMLDivElement>(null),
     perfect: useRef<HTMLDivElement>(null),
     gauge: useRef<HTMLDivElement>(null),
     gaugeContainer: useRef<HTMLDivElement>(null),
@@ -185,6 +187,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
         ballVel.current.y *= -settings.collisionDamp;
       }
 
+      // Combo Timer Logic
+      if (stats.combo > 0) {
+        stats.comboTimer -= 1 / TICK_RATE;
+        if (stats.comboTimer <= 0) {
+          stats.combo = 0;
+          stats.comboTimer = 0;
+          stats.perfectStreak = 0;
+        }
+      }
+
       // Target Collisions
       targetsRef.current.forEach((t, index) => {
         const tdx = ballPos.current.x - t.pos.x;
@@ -211,6 +223,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
     const handleHit = (t: Target, index: number) => {
       const stats = statsRef.current;
       stats.combo += 1;
+      stats.comboTimer = COMBO_TIME_LIMIT; // Reset combo timer to 5s
+
       let grade: EvalGrade = 'FAIL';
       let mult = 0;
       const s = isBroken.current ? 0 : stats.stretch;
@@ -250,6 +264,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       if (uiRefs.combo.current) {
         uiRefs.combo.current.style.display = s.combo > 0 ? 'block' : 'none';
         uiRefs.combo.current.textContent = `${s.combo} Hits`;
+      }
+      if (uiRefs.comboTimerBar.current) {
+        const comboPercent = (Math.max(0, s.comboTimer) / COMBO_TIME_LIMIT) * 100;
+        uiRefs.comboTimerBar.current.style.width = `${comboPercent}%`;
+        uiRefs.comboTimerBar.current.parentElement!.style.display = s.combo > 0 ? 'block' : 'none';
       }
       if (uiRefs.perfect.current) {
         uiRefs.perfect.current.style.display = s.perfectStreak > 0 ? 'block' : 'none';
