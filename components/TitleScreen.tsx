@@ -43,7 +43,7 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onStart, onSettings }) => {
           className="flex items-center justify-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-3 px-8 rounded-full transition-all"
         >
           <Settings size={20} />
-          <span>EXPERIMENTAL SETTINGS</span>
+          <span>SETTINGS</span>
         </button>
       </div>
 

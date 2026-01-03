@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from './constants';
 import TitleScreen from './components/TitleScreen';
 import GameCanvas from './components/GameCanvas';
 import ResultScreen from './components/ResultScreen';
+import SettingsScreen from './components/SettingsScreen';
 
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.TITLE);
@@ -24,6 +25,14 @@ const App: React.FC = () => {
     setGameState(GameState.TITLE);
   }, []);
 
+  const goToSettings = useCallback(() => {
+    setGameState(GameState.OPTIONS);
+  }, []);
+
+  const updateSettings = useCallback((newSettings: GameSettings) => {
+    setSettings(newSettings);
+  }, []);
+
   useEffect(() => {
     // Disable right-click globally for the game feel
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
@@ -34,7 +43,15 @@ const App: React.FC = () => {
   return (
     <div className="w-full h-screen bg-black flex items-center justify-center overflow-hidden">
       {gameState === GameState.TITLE && (
-        <TitleScreen onStart={startGame} onSettings={() => setGameState(GameState.OPTIONS)} />
+        <TitleScreen onStart={startGame} onSettings={goToSettings} />
+      )}
+      
+      {gameState === GameState.OPTIONS && (
+        <SettingsScreen 
+          settings={settings} 
+          onUpdate={updateSettings} 
+          onBack={goToTitle} 
+        />
       )}
       
       {gameState === GameState.PLAYING && (
