@@ -12,6 +12,8 @@ export enum TargetType {
   RED = 'RED'       // Mass up
 }
 
+export type ScoreDisplayMode = 'scientific' | 'kanji';
+
 export interface Vector2D {
   x: number;
   y: number;
@@ -30,6 +32,7 @@ export interface GameSettings {
   naturalLen: number;
   collisionDamp: number;
   isExperimental: boolean;
+  scoreDisplayMode: ScoreDisplayMode;
 }
 
 export interface GameStats {

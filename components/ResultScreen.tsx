@@ -1,9 +1,12 @@
 
 import React from 'react';
 import { RefreshCw, Home, Trophy, CloudSync, CheckCircle2, Loader2 } from 'lucide-react';
+import { GameSettings } from '../types';
+import { formatScore } from '../constants';
 
 interface ResultScreenProps {
   score: number;
+  settings: GameSettings;
   onRestart: () => void;
   onTitle: () => void;
   onSync: (score: number) => void;
@@ -13,6 +16,7 @@ interface ResultScreenProps {
 
 const ResultScreen: React.FC<ResultScreenProps> = ({ 
   score, 
+  settings,
   onRestart, 
   onTitle, 
   onSync, 
@@ -43,8 +47,8 @@ const ResultScreen: React.FC<ResultScreenProps> = ({
       </div>
 
       <div className="text-center">
-        <div className="text-6xl font-black tabular-nums tracking-tighter mb-2">
-          {score.toLocaleString()}
+        <div className="text-4xl md:text-5xl font-black tabular-nums tracking-tighter mb-2 break-all px-4">
+          {formatScore(score, settings.scoreDisplayMode)}
         </div>
         <div className={`text-xl font-bold tracking-[0.3em] ${rank.color}`}>
           RANK: {rank.label}
@@ -54,7 +58,7 @@ const ResultScreen: React.FC<ResultScreenProps> = ({
       <div className="w-full bg-zinc-950 p-6 rounded-xl border border-zinc-800 space-y-3">
         <div className="flex justify-between text-sm">
             <span className="text-zinc-500">Total Score</span>
-            <span className="text-white font-bold">{score.toLocaleString()}</span>
+            <span className="text-white font-bold">{formatScore(score, settings.scoreDisplayMode)}</span>
         </div>
         {isLoggedIn && (
           <div className="pt-2 border-t border-zinc-800/50">

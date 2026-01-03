@@ -234,7 +234,6 @@ const App: React.FC = () => {
 
   return (
     <div className="w-full h-screen bg-[#010103] flex items-center justify-center overflow-hidden">
-      {/* Aspect Ratio Container for PC */}
       <div 
         className={`relative w-full h-full flex items-center justify-center ${gameState === GameState.PLAYING ? 'max-w-none max-h-none' : ''}`}
         style={gameState === GameState.PLAYING ? {
@@ -272,6 +271,7 @@ const App: React.FC = () => {
         {gameState === GameState.GAMEOVER && (
           <ResultScreen 
             score={lastScore} 
+            settings={settings}
             onRestart={startGame} 
             onTitle={goToTitle} 
             onSync={saveHighScore}
@@ -284,6 +284,7 @@ const App: React.FC = () => {
           <Leaderboard 
             entries={leaderboard} 
             isLoading={isLoadingLeaderboard}
+            displayMode={settings.scoreDisplayMode}
             onClose={() => setIsLeaderboardOpen(false)} 
           />
         )}

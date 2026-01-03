@@ -1,24 +1,17 @@
 
 import React from 'react';
 import { X, Trophy, User, Hash, Loader2 } from 'lucide-react';
-import { LeaderboardEntry } from '../types';
+import { LeaderboardEntry, ScoreDisplayMode } from '../types';
+import { formatScore } from '../constants';
 
 interface LeaderboardProps {
   entries: LeaderboardEntry[];
   isLoading: boolean;
   onClose: () => void;
+  displayMode?: ScoreDisplayMode;
 }
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ entries, isLoading, onClose }) => {
-  // Helper to format large scores
-  const formatScore = (num: number) => {
-    // 8 digits or more (10,000,000+) use exponential notation
-    if (num >= 10000000) {
-      return num.toExponential(3);
-    }
-    return num.toLocaleString();
-  };
-
+const Leaderboard: React.FC<LeaderboardProps> = ({ entries, isLoading, onClose, displayMode = 'kanji' }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
       <div className="bg-zinc-900 border border-zinc-800 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
@@ -89,7 +82,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ entries, isLoading, onClose }
 
                   <div className="text-right">
                     <div className="text-lg font-black text-blue-400 tabular-nums leading-none">
-                      {formatScore(entry.score)}
+                      {/* Fix: Explicitly cast displayMode to ScoreDisplayMode to resolve 'string' not assignable error */}
+                      {formatScore(entry.score, displayMode as ScoreDisplayMode)}
                     </div>
                     <div className="text-[9px] text-zinc-600 font-bold uppercase tracking-tighter mt-1">
                       POINTS

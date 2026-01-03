@@ -10,7 +10,8 @@ import {
   DANGER_THRESHOLD,
   BREAK_TIME_LIMIT,
   TARGET_COLORS,
-  COMBO_TIME_LIMIT
+  COMBO_TIME_LIMIT,
+  formatScore
 } from '../constants';
 import { GameSettings, Vector2D, Target, TargetType, GameStats } from '../types';
 import UIOverlay from './UIOverlay';
@@ -399,7 +400,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
 
     const updateUI = () => {
       const s = statsRef.current;
-      if (uiRefs.score.current) uiRefs.score.current.textContent = s.score.toLocaleString();
+      if (uiRefs.score.current) uiRefs.score.current.textContent = formatScore(s.score, settings.scoreDisplayMode);
       if (uiRefs.timer.current) uiRefs.timer.current.textContent = Math.max(0, s.timeLeft).toFixed(1);
       
       if (uiRefs.combo.current && uiRefs.comboTimerContainer.current && uiRefs.comboTimerBar.current) {

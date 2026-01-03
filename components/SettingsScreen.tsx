@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { ChevronLeft, RotateCcw } from 'lucide-react';
-import { GameSettings } from '../types';
+import { ChevronLeft, RotateCcw, Hash, Binary } from 'lucide-react';
+import { GameSettings, ScoreDisplayMode } from '../types';
 import { DEFAULT_SETTINGS } from '../constants';
 
 interface SettingsScreenProps {
@@ -15,7 +15,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ settings, onUpdate, onB
     onUpdate({ ...DEFAULT_SETTINGS });
   };
 
-  const updateValue = (key: keyof GameSettings, value: number) => {
+  const updateValue = (key: keyof GameSettings, value: any) => {
     onUpdate({ ...settings, [key]: value });
   };
 
@@ -75,6 +75,35 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ settings, onUpdate, onB
       </div>
 
       <div className="space-y-6">
+        {/* Score Notation Setting */}
+        <div className="space-y-3">
+          <label className="text-zinc-400 text-xs font-bold uppercase tracking-widest block">Large Score Notation (8+ digits)</label>
+          <div className="flex bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+            <button
+              onClick={() => updateValue('scoreDisplayMode', 'kanji')}
+              className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                settings.scoreDisplayMode === 'kanji' 
+                ? 'bg-blue-600 text-white shadow-lg' 
+                : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <Hash size={14} />
+              <span>漢字 (Kanji)</span>
+            </button>
+            <button
+              onClick={() => updateValue('scoreDisplayMode', 'scientific')}
+              className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                settings.scoreDisplayMode === 'scientific' 
+                ? 'bg-blue-600 text-white shadow-lg' 
+                : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <Binary size={14} />
+              <span>指数 (Scientific)</span>
+            </button>
+          </div>
+        </div>
+
         <SliderGroup 
           label="Gravity (Weight)" 
           value={settings.gravity} 
@@ -101,14 +130,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ settings, onUpdate, onB
           value={settings.collisionDamp} 
           defaultValue={DEFAULT_SETTINGS.collisionDamp}
           onChange={(v) => updateValue('collisionDamp', v)}
-          maxMult={1.4} // Prevent too much energy gain from collisions
+          maxMult={1.4}
         />
       </div>
 
       <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800">
         <p className="text-zinc-500 text-[10px] leading-tight text-center uppercase tracking-wider">
-          Adjusting these parameters will significantly alter the physics simulation. 
-          Use with caution for extreme configurations.
+          Notation impacts Global Rankings, Mission Results, and live HUD display.
         </p>
       </div>
 
