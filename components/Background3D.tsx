@@ -1,28 +1,15 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { GameStats } from '../types';
 
 interface Background3DProps {
-  stretch: number;
+  statsRef: React.RefObject<GameStats>;
 }
 
-const Background3D: React.FC<Background3DProps> = ({ stretch }) => {
+const Background3D: React.FC<Background3DProps> = ({ statsRef }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const cssGridRef = useRef<HTMLDivElement>(null);
-  const stretchRef = useRef(stretch);
-
-  useEffect(() => {
-    stretchRef.current = stretch;
-    if (cssGridRef.current) {
-      // Background movement is now constant (independent of stretch)
-      const constantSpeed = 1.5; 
-      cssGridRef.current.style.setProperty('--scroll-speed', `${2 / constantSpeed}s`);
-      
-      const hue = stretch > 0.9 ? 0 : 215;
-      const intensity = 0.3 + stretch * 0.7;
-      cssGridRef.current.style.setProperty('--grid-color', `hsla(${hue}, 80%, 60%, ${0.4 * intensity})`);
-    }
-  }, [stretch]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -39,7 +26,6 @@ const Background3D: React.FC<Background3DProps> = ({ stretch }) => {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mountRef.current.appendChild(renderer.domElement);
 
-    // Vertical Shaft Geometry
     const tunnelGroup = new THREE.Group();
     scene.add(tunnelGroup);
 
@@ -68,22 +54,14 @@ const Background3D: React.FC<Background3DProps> = ({ stretch }) => {
         uniform vec3 dangerColor;
 
         void main() {
-          // Speed is now constant (1.5) instead of stretch-dependent
           float constantSpeed = 1.5;
           float yPos = fract(vUv.y * 5.0 + time * constantSpeed);
-          
-          // Glowing pulses that travel down the wall
           float pulse = pow(1.0 - abs(yPos - 0.5) * 2.0, 16.0);
-          
-          // Horizontal grid lines
           float grid = step(0.98, fract(vUv.y * 40.0 + time * constantSpeed * 2.0));
           
           vec3 color = mix(baseColor, dangerColor, clamp(stretch - 0.8, 0.0, 1.0) * 1.5);
           vec3 finalPulseColor = mix(pulseColor, dangerColor, clamp(stretch - 0.8, 0.0, 1.0));
-          
           vec3 finalColor = color + (finalPulseColor * pulse * 2.0) + (finalPulseColor * grid * 0.5);
-          
-          // Vignette/Edge fade
           float edge = smoothstep(0.0, 0.2, vUv.x) * smoothstep(1.0, 0.8, vUv.x);
           
           gl_FragColor = vec4(finalColor * edge, 1.0);
@@ -113,14 +91,23 @@ const Background3D: React.FC<Background3DProps> = ({ stretch }) => {
     let frameId: number;
     const animate = () => {
       frameId = requestAnimationFrame(animate);
-      const s = stretchRef.current;
-      wallMat.uniforms.time.value += 0.005; // Time increments constantly
+      
+      // Directly read current stretch from statsRef to avoid React state overhead
+      const s = statsRef.current?.stretch || 0;
+      
+      wallMat.uniforms.time.value += 0.005;
       wallMat.uniforms.stretch.value = s;
       
       light.intensity = 50 + s * 200;
       light.color.setHex(s > 0.9 ? 0xff4444 : 0x3b82f6);
+
+      // UI Grid color sync without re-rendering Background3D
+      if (cssGridRef.current) {
+        const hue = s > 0.9 ? 0 : 215;
+        const intensity = 0.3 + s * 0.7;
+        cssGridRef.current.style.setProperty('--grid-color', `hsla(${hue}, 80%, 60%, ${0.4 * intensity})`);
+      }
       
-      // Slight camera shake on high tension
       if (s > 0.9) {
         camera.position.x = (Math.random() - 0.5) * 0.05 * s;
         camera.position.y = (Math.random() - 0.5) * 0.05 * s;
@@ -148,32 +135,24 @@ const Background3D: React.FC<Background3DProps> = ({ stretch }) => {
       wallGeo.dispose();
       wallMat.dispose();
     };
-  }, []);
+  }, []); // statsRef is constant, so this runs once
 
   return (
     <div className="fixed inset-0 z-0 overflow-hidden bg-[#010103]">
-      {/* Deep 3D Shaft */}
       <div ref={mountRef} className="absolute inset-0 opacity-80" />
-
-      {/* Constant Speed CSS Streak Layer */}
       <div className="absolute inset-0 pointer-events-none opacity-40">
         <div 
           className="absolute inset-0"
           style={{
             backgroundImage: 'linear-gradient(to bottom, transparent, rgba(59, 130, 246, 0.1) 50%, transparent)',
             backgroundSize: '100% 200px',
-            animation: 'streak-scroll 0.5s linear infinite' // Constant duration
+            animation: 'streak-scroll 0.5s linear infinite'
           }}
         />
       </div>
-
-      {/* Cyber Grid Perspective Overlay */}
       <div 
         className="absolute inset-0 pointer-events-none"
-        style={{
-          perspective: '1200px',
-          perspectiveOrigin: '50% 40%'
-        }}
+        style={{ perspective: '1200px', perspectiveOrigin: '50% 40%' }}
       >
         <div 
           ref={cssGridRef}
@@ -185,15 +164,12 @@ const Background3D: React.FC<Background3DProps> = ({ stretch }) => {
               linear-gradient(to right, var(--grid-color, rgba(59, 130, 246, 0.2)) 2px, transparent 2px)
             `,
             backgroundSize: '80px 80px',
-            animation: 'background-scroll var(--scroll-speed, 1.33s) linear infinite',
+            animation: 'background-scroll 1.33s linear infinite',
             boxShadow: 'inset 0 0 150px rgba(0,0,0,1)'
           } as React.CSSProperties}
         />
       </div>
-
-      {/* Global Speed Vignette */}
       <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_200px_rgba(0,0,0,0.9)]" />
-
       <style>{`
         @keyframes background-scroll {
           from { background-position: 0 0; }
