@@ -1,11 +1,12 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { GameState, GameSettings, NostrUser } from './types';
+import { GameState, GameSettings, NostrUser, LeaderboardEntry, HighScoreContent } from './types';
 import { DEFAULT_SETTINGS } from './constants';
 import TitleScreen from './components/TitleScreen';
 import GameCanvas from './components/GameCanvas';
 import ResultScreen from './components/ResultScreen';
 import SettingsScreen from './components/SettingsScreen';
+import Leaderboard from './components/Leaderboard';
 
 const BOOTSTRAP_RELAYS = [
   'wss://nos.lol', 
@@ -16,6 +17,8 @@ const BOOTSTRAP_RELAYS = [
   'wss://purplepag.es'
 ];
 
+const D_TAG = 'pendulum-rubber-action/highscore';
+
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.TITLE);
   const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
@@ -23,6 +26,10 @@ const App: React.FC = () => {
   const [nostrUser, setNostrUser] = useState<NostrUser | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
 
   const startGame = useCallback(() => {
     setGameState(GameState.PLAYING);
@@ -54,7 +61,6 @@ const App: React.FC = () => {
       const finish = () => {
         if (!resolved) {
           resolved = true;
-          console.log("Nostr Metadata Fetch Finished:", foundData);
           resolve(foundData);
         }
       };
@@ -79,33 +85,19 @@ const App: React.FC = () => {
                 const event = msg[2];
                 if (event.kind === 0) {
                   const content = JSON.parse(event.content);
-                  if (content.picture) {
-                    foundData.picture = content.picture;
-                    // If picture is found, we're likely satisfied
-                    setTimeout(finish, 100);
-                  }
+                  if (content.picture) { foundData.picture = content.picture; setTimeout(finish, 100); }
                   if (content.name) foundData.name = content.name;
-                } else if (event.kind === 10002) {
-                  event.tags.forEach((tag: string[]) => {
-                    if (tag[0] === 'r' && tag[1]) {
-                      const relayUrl = tag[1].replace(/\/$/, "");
-                      if (!processedRelays.has(relayUrl)) connectAndQuery(relayUrl);
-                    }
-                  });
                 }
               }
               if (msg[0] === "EOSE") ws.close();
             } catch (err) {}
           };
-
           ws.onclose = () => clearTimeout(timeout);
           ws.onerror = () => ws.close();
         } catch (err) {}
       };
 
       BOOTSTRAP_RELAYS.forEach(url => connectAndQuery(url));
-      
-      // Fallback timer
       setTimeout(finish, 5000);
     });
   };
@@ -113,23 +105,13 @@ const App: React.FC = () => {
   const loginNostr = async () => {
     setLoginError(null);
     const nostr = (window as any).nostr;
-    
-    if (!nostr) {
-      setLoginError("Extension not found (NIP-07)");
-      return;
-    }
-
+    if (!nostr) { setLoginError("Extension not found"); return; }
     setIsLoggingIn(true);
     try {
       const pubkey = await nostr.getPublicKey();
       setNostrUser({ pubkey });
-      
       const meta = await fetchNostrData(pubkey);
-      setNostrUser(prev => ({ 
-        pubkey: prev?.pubkey || pubkey, 
-        picture: meta.picture || prev?.picture,
-        name: meta.name || prev?.name
-      }));
+      setNostrUser({ pubkey, ...meta });
     } catch (err: any) {
       setLoginError(err.message || "Login failed");
     } finally {
@@ -137,11 +119,121 @@ const App: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
-    document.addEventListener('contextmenu', handleContextMenu);
-    return () => document.removeEventListener('contextmenu', handleContextMenu);
-  }, []);
+  const saveHighScore = async (score: number) => {
+    const nostr = (window as any).nostr;
+    if (!nostr || !nostrUser) return;
+    setIsSyncing(true);
+
+    try {
+      const content: HighScoreContent = {
+        score,
+        bestCombo: 0,
+        settings,
+        timestamp: Math.floor(Date.now() / 1000)
+      };
+
+      const event = {
+        kind: 30078,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ["d", D_TAG],
+          ["score", score.toString()]
+        ],
+        content: JSON.stringify(content)
+      };
+
+      const signedEvent = await nostr.signEvent(event);
+      BOOTSTRAP_RELAYS.forEach(url => {
+        const ws = new WebSocket(url);
+        ws.onopen = () => { ws.send(JSON.stringify(["EVENT", signedEvent])); setTimeout(() => ws.close(), 1000); };
+      });
+      console.log("Score Synced to Nostr");
+    } catch (e) {
+      console.error("Sync failed", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const loadLeaderboard = async () => {
+    setIsLeaderboardOpen(true);
+    setIsLoadingLeaderboard(true);
+    setLeaderboard([]);
+    
+    const entries: Map<string, LeaderboardEntry> = new Map();
+    const relayUrls = BOOTSTRAP_RELAYS.slice(0, 4);
+
+    // Step 1: Fetch High Score Events
+    await Promise.all(relayUrls.map(url => {
+      return new Promise<void>((resolve) => {
+        const ws = new WebSocket(url);
+        const timeout = setTimeout(() => { ws.close(); resolve(); }, 6000);
+        ws.onopen = () => ws.send(JSON.stringify(["REQ", "lb", { kinds: [30078], "#d": [D_TAG], limit: 50 }]));
+        ws.onmessage = (e) => {
+          const msg = JSON.parse(e.data);
+          if (msg[0] === "EVENT") {
+            const ev = msg[2];
+            try {
+              const content = JSON.parse(ev.content);
+              const scoreVal = parseInt(content.score) || 0;
+              const existing = entries.get(ev.pubkey);
+              if (!existing || existing.timestamp < ev.created_at) {
+                entries.set(ev.pubkey, {
+                  pubkey: ev.pubkey,
+                  score: scoreVal,
+                  bestCombo: content.bestCombo || 0,
+                  timestamp: ev.created_at
+                });
+              }
+            } catch(e) {}
+          }
+          if (msg[0] === "EOSE") { ws.close(); resolve(); }
+        };
+        ws.onclose = () => { clearTimeout(timeout); resolve(); };
+        ws.onerror = () => resolve();
+      });
+    }));
+
+    const sorted = Array.from(entries.values()).sort((a, b) => b.score - a.score).slice(0, 20);
+    if (sorted.length === 0) {
+      setIsLoadingLeaderboard(false);
+      return;
+    }
+
+    // Step 2: Batch Fetch Metadata for the sorted users
+    const pubkeysToFetch = sorted.map(s => s.pubkey);
+    const metadataMap: Map<string, {name?: string, picture?: string}> = new Map();
+
+    await Promise.all(relayUrls.map(url => {
+      return new Promise<void>((resolve) => {
+        const ws = new WebSocket(url);
+        const timeout = setTimeout(() => { ws.close(); resolve(); }, 4000);
+        ws.onopen = () => ws.send(JSON.stringify(["REQ", "meta", { authors: pubkeysToFetch, kinds: [0] }]));
+        ws.onmessage = (e) => {
+          const msg = JSON.parse(e.data);
+          if (msg[0] === "EVENT") {
+            const ev = msg[2];
+            try {
+              const content = JSON.parse(ev.content);
+              metadataMap.set(ev.pubkey, { name: content.name, picture: content.picture });
+            } catch(e) {}
+          }
+          if (msg[0] === "EOSE") { ws.close(); resolve(); }
+        };
+        ws.onclose = () => { clearTimeout(timeout); resolve(); };
+        ws.onerror = () => resolve();
+      });
+    }));
+
+    // Step 3: Merge Metadata into Entries
+    const finalEntries = sorted.map(entry => ({
+      ...entry,
+      ...metadataMap.get(entry.pubkey)
+    }));
+
+    setLeaderboard(finalEntries);
+    setIsLoadingLeaderboard(false);
+  };
 
   return (
     <div className="w-full h-screen bg-black flex items-center justify-center overflow-hidden">
@@ -150,6 +242,7 @@ const App: React.FC = () => {
           onStart={startGame} 
           onSettings={goToSettings} 
           onLogin={loginNostr}
+          onOpenLeaderboard={loadLeaderboard}
           isLoggingIn={isLoggingIn}
           loginError={loginError}
           nostrUser={nostrUser}
@@ -169,7 +262,22 @@ const App: React.FC = () => {
       )}
 
       {gameState === GameState.GAMEOVER && (
-        <ResultScreen score={lastScore} onRestart={startGame} onTitle={goToTitle} />
+        <ResultScreen 
+          score={lastScore} 
+          onRestart={startGame} 
+          onTitle={goToTitle} 
+          onSync={saveHighScore}
+          isSyncing={isSyncing}
+          isLoggedIn={!!nostrUser}
+        />
+      )}
+
+      {isLeaderboardOpen && (
+        <Leaderboard 
+          entries={leaderboard} 
+          isLoading={isLoadingLeaderboard}
+          onClose={() => setIsLeaderboardOpen(false)} 
+        />
       )}
     </div>
   );

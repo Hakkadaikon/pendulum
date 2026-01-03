@@ -35,18 +35,34 @@ export interface GameSettings {
 export interface GameStats {
   score: number;
   combo: number;
-  comboTimer: number; // Remaining time for combo in seconds
+  comboTimer: number; 
   perfectStreak: number;
   timeLeft: number;
-  rubberMaxLoad: number; // Current maximum allowed stretch
+  rubberMaxLoad: number;
   ballMass: number;
   ballRadius: number;
   stretch: number;
-  dangerTime: number; // Seconds spent in danger zone
+  dangerTime: number;
 }
 
 export interface NostrUser {
   pubkey: string;
   picture?: string;
   name?: string;
+}
+
+export interface HighScoreContent {
+  score: number;
+  bestCombo: number;
+  settings: GameSettings;
+  timestamp: number;
+}
+
+export interface LeaderboardEntry {
+  pubkey: string;
+  name?: string;
+  picture?: string;
+  score: number;
+  bestCombo: number;
+  timestamp: number;
 }

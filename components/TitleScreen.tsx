@@ -1,12 +1,13 @@
 
 import React from 'react';
-import { MousePointer2, Play, Settings, User, AlertCircle } from 'lucide-react';
+import { MousePointer2, Play, Settings, User, AlertCircle, Globe } from 'lucide-react';
 import { NostrUser } from '../types';
 
 interface TitleScreenProps {
   onStart: () => void;
   onSettings: () => void;
   onLogin: () => void;
+  onOpenLeaderboard: () => void;
   isLoggingIn: boolean;
   loginError: string | null;
   nostrUser: NostrUser | null;
@@ -16,6 +17,7 @@ const TitleScreen: React.FC<TitleScreenProps> = ({
   onStart, 
   onSettings, 
   onLogin, 
+  onOpenLeaderboard,
   isLoggingIn, 
   loginError,
   nostrUser 
@@ -65,6 +67,14 @@ const TitleScreen: React.FC<TitleScreenProps> = ({
           <span>START MISSION</span>
         </button>
         
+        <button
+          onClick={onOpenLeaderboard}
+          className="flex items-center justify-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 px-8 rounded-full transition-all border border-zinc-700"
+        >
+          <Globe size={20} className="text-cyan-400" />
+          <span>GLOBAL RANKING</span>
+        </button>
+
         {!nostrUser && (
           <div className="flex flex-col space-y-2">
             <button
@@ -107,7 +117,7 @@ const TitleScreen: React.FC<TitleScreenProps> = ({
           Move mouse to control. Avoid stretching &gt; 100%.
         </p>
         <p className="text-zinc-500 text-[10px] tracking-tight font-medium opacity-80">
-          Nostr login unlocks personalized background
+          Sync scores with NIP-33 / Kind 30078
         </p>
       </div>
     </div>
