@@ -7,9 +7,10 @@ interface FireworkEffectProps {
   x: number;
   y: number;
   grade: EvalGrade;
+  stretchPercent: number;
 }
 
-const FireworkEffect: React.FC<FireworkEffectProps> = ({ x, y, grade }) => {
+const FireworkEffect: React.FC<FireworkEffectProps> = ({ x, y, grade, stretchPercent }) => {
   const settings = useMemo(() => {
     switch (grade) {
       case 'FAIL':
@@ -67,15 +68,17 @@ const FireworkEffect: React.FC<FireworkEffectProps> = ({ x, y, grade }) => {
     <>
       {particles}
       <div
-        className="eval-text"
+        className="eval-text flex flex-col items-center"
         style={{
           left: x,
           top: y,
           color: settings.color,
-          fontSize: settings.fontSize,
         }}
       >
-        {settings.text}
+        <div style={{ fontSize: settings.fontSize }}>{settings.text}</div>
+        <div className="font-mono text-sm opacity-90 mt-[-10px] bg-black/40 px-2 py-0.5 rounded-md backdrop-blur-sm border border-white/10">
+          {stretchPercent}%
+        </div>
       </div>
     </>
   );

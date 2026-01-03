@@ -22,6 +22,7 @@ interface FireworkInstance {
   x: number;
   y: number;
   grade: EvalGrade;
+  stretchPercent: number;
 }
 
 interface GameCanvasProps {
@@ -228,6 +229,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       let grade: EvalGrade = 'FAIL';
       let baseScore = 0;
       const s = isBroken.current ? 0 : stats.stretch;
+      const stretchPercent = Math.round(s * 100);
 
       if (!isBroken.current) {
         if (s >= 0.9) { 
@@ -260,8 +262,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       }
 
       const fwId = Math.random().toString(36).substr(2, 9);
-      setFireworks(prev => [...prev, { id: fwId, x: t.pos.x, y: t.pos.y, grade }]);
-      setTimeout(() => setFireworks(p => p.filter(f => f.id !== fwId)), 1500);
+      setFireworks(prev => [...prev, { id: fwId, x: t.pos.x, y: t.pos.y, grade, stretchPercent }]);
+      setTimeout(() => setFireworks(p => p.filter(f => f.id !== fwId)), 2500);
 
       // Final Score = BaseScore * (1 + Combo * 0.1)
       const bonusMult = 1 + (stats.combo * 0.1);
@@ -462,7 +464,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
         className="relative z-10 block"
       />
       <div className="absolute inset-0 pointer-events-none z-20">
-        {fireworks.map(f => <FireworkEffect key={f.id} x={f.x} y={f.y} grade={f.grade} />)}
+        {fireworks.map(f => <FireworkEffect key={f.id} x={f.x} y={f.y} grade={f.grade} stretchPercent={f.stretchPercent} />)}
       </div>
       <UIOverlay refs={uiRefs} />
     </div>
