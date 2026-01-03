@@ -80,6 +80,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
     score: useRef<HTMLDivElement>(null),
     timer: useRef<HTMLDivElement>(null),
     combo: useRef<HTMLDivElement>(null),
+    comboTimerContainer: useRef<HTMLDivElement>(null),
     comboTimerBar: useRef<HTMLDivElement>(null),
     perfect: useRef<HTMLDivElement>(null),
     gauge: useRef<HTMLDivElement>(null),
@@ -298,7 +299,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
         ctx.beginPath(); ctx.moveTo(drawAnchor.x, drawAnchor.y); ctx.lineTo(drawBall.x, drawBall.y); ctx.stroke();
       }
 
-      // Anchor Point Visuals (RESTORED)
+      // Anchor Point Visuals
       ctx.save();
       ctx.translate(drawAnchor.x, drawAnchor.y);
       ctx.strokeStyle = '#f8fafc';
@@ -380,10 +381,31 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       const s = statsRef.current;
       if (uiRefs.score.current) uiRefs.score.current.textContent = s.score.toLocaleString();
       if (uiRefs.timer.current) uiRefs.timer.current.textContent = Math.max(0, s.timeLeft).toFixed(1);
-      if (uiRefs.combo.current) {
-        uiRefs.combo.current.style.display = s.combo > 0 ? 'block' : 'none';
-        uiRefs.combo.current.textContent = `${s.combo} Hits`;
+      
+      // Combo and Combo Timer Updates
+      if (uiRefs.combo.current && uiRefs.comboTimerContainer.current && uiRefs.comboTimerBar.current) {
+        if (s.combo > 0) {
+          uiRefs.combo.current.style.display = 'block';
+          uiRefs.combo.current.textContent = `${s.combo} Hits`;
+          uiRefs.comboTimerContainer.current.style.display = 'block';
+          const progress = Math.max(0, (s.comboTimer / COMBO_TIME_LIMIT) * 100);
+          uiRefs.comboTimerBar.current.style.width = `${progress}%`;
+        } else {
+          uiRefs.combo.current.style.display = 'none';
+          uiRefs.comboTimerContainer.current.style.display = 'none';
+        }
       }
+
+      // Perfect Streak
+      if (uiRefs.perfect.current) {
+        if (s.perfectStreak > 0) {
+          uiRefs.perfect.current.style.display = 'block';
+          uiRefs.perfect.current.textContent = `Perfect x${s.perfectStreak}`;
+        } else {
+          uiRefs.perfect.current.style.display = 'none';
+        }
+      }
+
       if (uiRefs.gauge.current) {
         const stretchPercent = Math.min(100, s.stretch * 100);
         uiRefs.gauge.current.style.width = isBroken.current ? '0%' : `${stretchPercent}%`;
