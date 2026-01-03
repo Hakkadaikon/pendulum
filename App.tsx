@@ -175,7 +175,8 @@ const App: React.FC = () => {
             const ev = msg[2];
             try {
               const content = JSON.parse(ev.content);
-              const scoreVal = parseInt(content.score) || 0;
+              // Number() supports both strings and numeric fields, including scientific notation.
+              const scoreVal = Number(content.score) || 0;
               const existing = entries.get(ev.pubkey);
               if (!existing || existing.timestamp < ev.created_at) {
                 entries.set(ev.pubkey, {
