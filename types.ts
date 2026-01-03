@@ -44,3 +44,9 @@ export interface GameStats {
   stretch: number;
   dangerTime: number; // Seconds spent in danger zone
 }
+
+export interface NostrUser {
+  pubkey: string;
+  picture?: string;
+  name?: string;
+}

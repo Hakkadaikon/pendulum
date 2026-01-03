@@ -1,21 +1,34 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { GameStats } from '../types';
 
 interface Background3DProps {
-  statsRef: React.RefObject<GameStats>;
+  stretch: number;
+  userAvatar?: string;
 }
 
-const Background3D: React.FC<Background3DProps> = ({ statsRef }) => {
+const Background3D: React.FC<Background3DProps> = ({ stretch, userAvatar }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const cssGridRef = useRef<HTMLDivElement>(null);
+  const stretchRef = useRef(stretch);
+
+  useEffect(() => {
+    stretchRef.current = stretch;
+    if (cssGridRef.current) {
+      const constantSpeed = 1.5; 
+      cssGridRef.current.style.setProperty('--scroll-speed', `${2 / constantSpeed}s`);
+      
+      const hue = stretch > 0.9 ? 0 : 215;
+      const intensity = 0.3 + stretch * 0.7;
+      cssGridRef.current.style.setProperty('--grid-color', `hsla(${hue}, 80%, 60%, ${0.4 * intensity})`);
+    }
+  }, [stretch]);
 
   useEffect(() => {
     if (!mountRef.current) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x010103);
+    scene.background = null; 
     scene.fog = new THREE.FogExp2(0x010103, 0.04);
 
     const camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -24,6 +37,7 @@ const Background3D: React.FC<Background3DProps> = ({ statsRef }) => {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0); 
     mountRef.current.appendChild(renderer.domElement);
 
     const tunnelGroup = new THREE.Group();
@@ -58,16 +72,15 @@ const Background3D: React.FC<Background3DProps> = ({ statsRef }) => {
           float yPos = fract(vUv.y * 5.0 + time * constantSpeed);
           float pulse = pow(1.0 - abs(yPos - 0.5) * 2.0, 16.0);
           float grid = step(0.98, fract(vUv.y * 40.0 + time * constantSpeed * 2.0));
-          
           vec3 color = mix(baseColor, dangerColor, clamp(stretch - 0.8, 0.0, 1.0) * 1.5);
           vec3 finalPulseColor = mix(pulseColor, dangerColor, clamp(stretch - 0.8, 0.0, 1.0));
           vec3 finalColor = color + (finalPulseColor * pulse * 2.0) + (finalPulseColor * grid * 0.5);
           float edge = smoothstep(0.0, 0.2, vUv.x) * smoothstep(1.0, 0.8, vUv.x);
-          
-          gl_FragColor = vec4(finalColor * edge, 1.0);
+          gl_FragColor = vec4(finalColor * edge, 0.4); // More transparent to see icon through back wall
         }
       `,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
+      transparent: true
     });
 
     const leftWall = new THREE.Mesh(wallGeo, wallMat);
@@ -81,7 +94,7 @@ const Background3D: React.FC<Background3DProps> = ({ statsRef }) => {
     tunnelGroup.add(rightWall);
 
     const backWall = new THREE.Mesh(wallGeo, wallMat);
-    backWall.position.z = -20;
+    backWall.position.z = -30;
     tunnelGroup.add(backWall);
 
     const light = new THREE.PointLight(0x3b82f6, 100, 100);
@@ -91,22 +104,12 @@ const Background3D: React.FC<Background3DProps> = ({ statsRef }) => {
     let frameId: number;
     const animate = () => {
       frameId = requestAnimationFrame(animate);
-      
-      // Directly read current stretch from statsRef to avoid React state overhead
-      const s = statsRef.current?.stretch || 0;
-      
+      const s = stretchRef.current;
       wallMat.uniforms.time.value += 0.005;
       wallMat.uniforms.stretch.value = s;
       
       light.intensity = 50 + s * 200;
       light.color.setHex(s > 0.9 ? 0xff4444 : 0x3b82f6);
-
-      // UI Grid color sync without re-rendering Background3D
-      if (cssGridRef.current) {
-        const hue = s > 0.9 ? 0 : 215;
-        const intensity = 0.3 + s * 0.7;
-        cssGridRef.current.style.setProperty('--grid-color', `hsla(${hue}, 80%, 60%, ${0.4 * intensity})`);
-      }
       
       if (s > 0.9) {
         camera.position.x = (Math.random() - 0.5) * 0.05 * s;
@@ -135,45 +138,74 @@ const Background3D: React.FC<Background3DProps> = ({ statsRef }) => {
       wallGeo.dispose();
       wallMat.dispose();
     };
-  }, []); // statsRef is constant, so this runs once
+  }, []);
 
   return (
     <div className="fixed inset-0 z-0 overflow-hidden bg-[#010103]">
-      <div ref={mountRef} className="absolute inset-0 opacity-80" />
-      <div className="absolute inset-0 pointer-events-none opacity-40">
+      {/* Layer 1: Three.js Tunnel - Bottom layer */}
+      <div ref={mountRef} className="absolute inset-0 z-0 opacity-100 pointer-events-none" />
+
+      {/* Layer 2: Centered Nostr Avatar - Above 3D Tunnel, Below Grid */}
+      {userAvatar && (
+        <div 
+          className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none transition-all duration-1000 overflow-hidden"
+          style={{
+            opacity: 0.4,
+            filter: 'grayscale(0.3) brightness(0.6) contrast(1.1)' 
+          }}
+        >
+           <div 
+            className="w-48 h-48 md:w-96 md:h-96 rounded-full overflow-hidden border-2 border-blue-500/20 shadow-[0_0_80px_rgba(59,130,246,0.2)]"
+            style={{
+              backgroundImage: `url(${userAvatar})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+            }}
+          />
+        </div>
+      )}
+
+      {/* Layer 3: Effects, Grid, and Vignette - Top of background stack */}
+      <div className="absolute inset-0 z-20 pointer-events-none opacity-20">
         <div 
           className="absolute inset-0"
           style={{
-            backgroundImage: 'linear-gradient(to bottom, transparent, rgba(59, 130, 246, 0.1) 50%, transparent)',
+            backgroundImage: 'linear-gradient(to bottom, transparent, rgba(59, 130, 246, 0.05) 50%, transparent)',
             backgroundSize: '100% 200px',
-            animation: 'streak-scroll 0.5s linear infinite'
+            animation: 'streak-scroll 0.8s linear infinite'
           }}
         />
       </div>
+
       <div 
-        className="absolute inset-0 pointer-events-none"
-        style={{ perspective: '1200px', perspectiveOrigin: '50% 40%' }}
+        className="absolute inset-0 z-20 pointer-events-none"
+        style={{
+          perspective: '1200px',
+          perspectiveOrigin: '50% 40%'
+        }}
       >
         <div 
           ref={cssGridRef}
-          className="absolute inset-0 origin-center"
+          className="absolute inset-0 origin-center opacity-40"
           style={{
             transform: 'rotateX(60deg) translateY(-50%) scale(2.5)',
             backgroundImage: `
-              linear-gradient(to bottom, var(--grid-color, rgba(59, 130, 246, 0.2)) 2px, transparent 2px),
-              linear-gradient(to right, var(--grid-color, rgba(59, 130, 246, 0.2)) 2px, transparent 2px)
+              linear-gradient(to bottom, var(--grid-color, rgba(59, 130, 246, 0.15)) 1px, transparent 1px),
+              linear-gradient(to right, var(--grid-color, rgba(59, 130, 246, 0.15)) 1px, transparent 1px)
             `,
-            backgroundSize: '80px 80px',
-            animation: 'background-scroll 1.33s linear infinite',
-            boxShadow: 'inset 0 0 150px rgba(0,0,0,1)'
+            backgroundSize: '100px 100px',
+            animation: 'background-scroll var(--scroll-speed, 1.5s) linear infinite',
           } as React.CSSProperties}
         />
       </div>
-      <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_200px_rgba(0,0,0,0.9)]" />
+
+      <div className="absolute inset-0 z-30 pointer-events-none shadow-[inset_0_0_300px_rgba(0,0,0,0.95)]" />
+
       <style>{`
         @keyframes background-scroll {
           from { background-position: 0 0; }
-          to { background-position: 0 80px; }
+          to { background-position: 0 100px; }
         }
         @keyframes streak-scroll {
           from { transform: translateY(-200px); }

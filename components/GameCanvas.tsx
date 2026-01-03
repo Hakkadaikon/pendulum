@@ -39,12 +39,14 @@ interface FireworkEval {
 interface GameCanvasProps {
   settings: GameSettings;
   onGameOver: (score: number) => void;
+  userAvatar?: string;
 }
 
-const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
+const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvatar }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [currentStretch, setCurrentStretch] = useState(0);
   
   const isPC = dimensions.width > 768;
   const wallWidth = isPC ? dimensions.width * 0.2 : 0;
@@ -149,6 +151,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
     let animationFrameId: number;
     let lastTime = performance.now();
     let accumulator = 0;
+    let lastStatsSync = 0;
 
     const updatePhysics = () => {
       if (!hasMoved.current) return;
@@ -162,10 +165,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
         onGameOver(stats.score); return;
       }
 
-      // Capture states for interpolation
       prevAnchorPos.current = { ...anchorPos.current };
       prevBallPos.current = { ...ballPos.current };
-
       anchorPos.current.x += (targetInputPos.current.x - anchorPos.current.x) * 0.35;
       anchorPos.current.y += (targetInputPos.current.y - anchorPos.current.y) * 0.35;
       const dx = ballPos.current.x - anchorPos.current.x;
@@ -184,7 +185,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       targetRotation.current += 0.04;
       ballPos.current.x += ballVel.current.x; ballPos.current.y += ballVel.current.y;
 
-      // Wall collision
       if (ballPos.current.x - stats.ballRadius < activeMinX) { ballPos.current.x = activeMinX + stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       else if (ballPos.current.x + stats.ballRadius > activeMaxX) { ballPos.current.x = activeMaxX - stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       if (ballPos.current.y - stats.ballRadius < 0) { ballPos.current.y = stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
@@ -249,9 +249,17 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
 
       if (!isBroken.current) {
         const canRecoverTime = stats.timeLeft > 30;
-        if (t.type === TargetType.YELLOW) { if (canRecoverTime) stats.timeLeft += 1.0; } 
-        else if (t.type === TargetType.GREEN) { stats.rubberMaxLoad = Math.min(400, stats.rubberMaxLoad + 15); if (canRecoverTime) stats.timeLeft += 2.0; } 
-        else if (t.type === TargetType.RED) { stats.ballMass += 0.2; stats.ballRadius += 2; if (canRecoverTime) stats.timeLeft += 3.0; }
+        
+        if (t.type === TargetType.YELLOW) {
+          if (canRecoverTime) stats.timeLeft += 1.0;
+        } else if (t.type === TargetType.GREEN) {
+          stats.rubberMaxLoad = Math.min(400, stats.rubberMaxLoad + 15);
+          if (canRecoverTime) stats.timeLeft += 2.0;
+        } else if (t.type === TargetType.RED) {
+          stats.ballMass += 0.2;
+          stats.ballRadius += 2;
+          if (canRecoverTime) stats.timeLeft += 3.0;
+        }
       }
       
       targetsRef.current.splice(index, 1);
@@ -276,7 +284,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
         ctx.fillText('MOVE TO INITIALIZE SYSTEM', w / 2, h / 2); return;
       }
 
-      // Linear Interpolation for smooth rendering at any frame rate
       const drawAnchor = {
         x: prevAnchorPos.current.x + (anchorPos.current.x - prevAnchorPos.current.x) * alpha,
         y: prevAnchorPos.current.y + (anchorPos.current.y - prevAnchorPos.current.y) * alpha
@@ -289,7 +296,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       const s = statsRef.current;
       const color = isBroken.current ? '#ef4444' : s.stretch > 1 ? '#ef4444' : s.stretch > 0.9 ? '#facc15' : '#3b82f6';
       
-      // Draw Particles
       ctx.globalCompositeOperation = 'lighter';
       particlesRef.current.forEach(p => {
         ctx.globalAlpha = p.life;
@@ -299,53 +305,81 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       ctx.globalAlpha = 1.0;
       ctx.globalCompositeOperation = 'source-over';
 
-      // Draw Rubber
       if (!isBroken.current) {
         ctx.lineWidth = 2 + (s.stretch * 2); ctx.strokeStyle = color;
         ctx.beginPath(); ctx.moveTo(drawAnchor.x, drawAnchor.y); ctx.lineTo(drawBall.x, drawBall.y); ctx.stroke();
       }
 
-      // Draw Anchor
       ctx.save();
       ctx.translate(drawAnchor.x, drawAnchor.y);
       ctx.strokeStyle = '#f8fafc';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.stroke();
-      ctx.shadowBlur = 15; ctx.shadowColor = color; ctx.fillStyle = color;
+      
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = color;
+      ctx.fillStyle = color;
       ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff';
+      
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath(); ctx.arc(0, 0, 1.5, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
 
-      // Draw Ball
       ctx.save();
       ctx.translate(drawBall.x, drawBall.y);
       ctx.rotate(ballRotation.current);
+      
       const mainBallGrad = ctx.createRadialGradient(-s.ballRadius * 0.3, -s.ballRadius * 0.3, s.ballRadius * 0.1, 0, 0, s.ballRadius);
-      mainBallGrad.addColorStop(0, '#ffffff'); mainBallGrad.addColorStop(0.3, color); mainBallGrad.addColorStop(1, '#000000');
-      if (s.stretch > 0.9 || isBroken.current) { ctx.shadowBlur = 20; ctx.shadowColor = color; }
+      mainBallGrad.addColorStop(0, '#ffffff');
+      mainBallGrad.addColorStop(0.3, color);
+      mainBallGrad.addColorStop(1, '#000000');
+      
+      if (s.stretch > 0.9 || isBroken.current) {
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = color;
+      }
+      
       ctx.fillStyle = mainBallGrad;
       ctx.beginPath(); ctx.arc(0, 0, s.ballRadius, 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(-s.ballRadius * 0.8, 0); ctx.lineTo(s.ballRadius * 0.8, 0); ctx.moveTo(0, -s.ballRadius * 0.8); ctx.lineTo(0, s.ballRadius * 0.8); ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-s.ballRadius * 0.8, 0); ctx.lineTo(s.ballRadius * 0.8, 0);
+      ctx.moveTo(0, -s.ballRadius * 0.8); ctx.lineTo(0, s.ballRadius * 0.8);
+      ctx.stroke();
       ctx.restore();
 
-      // Draw Targets
       targetsRef.current.forEach(t => {
         const tColor = TARGET_COLORS[t.type];
         ctx.save();
         ctx.translate(t.pos.x, t.pos.y);
         ctx.rotate(targetRotation.current);
+
         const targetGrad = ctx.createRadialGradient(-t.radius * 0.3, -t.radius * 0.3, t.radius * 0.1, 0, 0, t.radius);
-        targetGrad.addColorStop(0, '#ffffff'); targetGrad.addColorStop(0.3, tColor); targetGrad.addColorStop(1, '#000000');
-        ctx.shadowBlur = 15; ctx.shadowColor = tColor; ctx.fillStyle = targetGrad;
+        targetGrad.addColorStop(0, '#ffffff');
+        targetGrad.addColorStop(0.3, tColor);
+        targetGrad.addColorStop(1, '#000000');
+
+        ctx.shadowBlur = 15; ctx.shadowColor = tColor;
+        ctx.fillStyle = targetGrad;
         ctx.beginPath(); ctx.arc(0, 0, t.radius, 0, Math.PI * 2); ctx.fill();
-        ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.ellipse(0, 0, t.radius * 0.8, t.radius * 0.2, 0, 0, Math.PI * 2); ctx.stroke();
-        ctx.beginPath(); ctx.ellipse(0, 0, t.radius * 0.2, t.radius * 0.8, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, t.radius * 0.8, t.radius * 0.2, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(0, 0, t.radius * 0.2, t.radius * 0.8, 0, 0, Math.PI * 2);
+        ctx.stroke();
         ctx.restore();
       });
 
+      if (performance.now() - lastStatsSync > 50) { setCurrentStretch(s.stretch); lastStatsSync = performance.now(); }
       updateUI();
     };
 
@@ -387,27 +421,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
     };
 
     const loop = (time: number) => {
-      let delta = time - lastTime;
-      if (delta > 100) delta = 100; // Cap to prevent spiraling
-      accumulator += delta;
-      lastTime = time;
-
-      while (accumulator >= TICK_TIME) {
-        updatePhysics();
-        accumulator -= TICK_TIME;
-      }
-      
+      accumulator += time - lastTime; lastTime = time;
+      while (accumulator >= TICK_TIME) { updatePhysics(); accumulator -= TICK_TIME; }
       draw(accumulator / TICK_TIME);
       animationFrameId = requestAnimationFrame(loop);
     };
-    
     animationFrameId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationFrameId);
   }, [settings, onGameOver, spawnTarget, dimensions, isPC, activeMinX, activeMaxX]);
 
   return (
     <div ref={containerRef} className="relative w-full h-full cursor-none overflow-hidden bg-black" onMouseMove={handleMouseMove} onTouchMove={handleTouchMove}>
-      <Background3D statsRef={statsRef} />
+      <Background3D stretch={currentStretch} userAvatar={userAvatar} />
       <canvas ref={canvasRef} width={dimensions.width} height={dimensions.height} className="relative z-10 block" />
       <div className="absolute inset-0 pointer-events-none z-20">
         {evals.map(e => <FireworkEffect key={e.id} x={e.x} y={e.y} grade={e.grade} stretchPercent={e.stretchPercent} />)}
