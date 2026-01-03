@@ -163,7 +163,6 @@ const App: React.FC = () => {
     const entries: Map<string, LeaderboardEntry> = new Map();
     const relayUrls = BOOTSTRAP_RELAYS.slice(0, 4);
 
-    // Step 1: Fetch High Score Events
     await Promise.all(relayUrls.map(url => {
       return new Promise<void>((resolve) => {
         const ws = new WebSocket(url);
@@ -175,7 +174,6 @@ const App: React.FC = () => {
             const ev = msg[2];
             try {
               const content = JSON.parse(ev.content);
-              // Number() supports both strings and numeric fields, including scientific notation.
               const scoreVal = Number(content.score) || 0;
               const existing = entries.get(ev.pubkey);
               if (!existing || existing.timestamp < ev.created_at) {
@@ -201,7 +199,6 @@ const App: React.FC = () => {
       return;
     }
 
-    // Step 2: Batch Fetch Metadata for the sorted users
     const pubkeysToFetch = sorted.map(s => s.pubkey);
     const metadataMap: Map<string, {name?: string, picture?: string}> = new Map();
 
@@ -226,7 +223,6 @@ const App: React.FC = () => {
       });
     }));
 
-    // Step 3: Merge Metadata into Entries
     const finalEntries = sorted.map(entry => ({
       ...entry,
       ...metadataMap.get(entry.pubkey)
@@ -237,49 +233,61 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-screen bg-black flex items-center justify-center overflow-hidden">
-      {gameState === GameState.TITLE && (
-        <TitleScreen 
-          onStart={startGame} 
-          onSettings={goToSettings} 
-          onLogin={loginNostr}
-          onOpenLeaderboard={loadLeaderboard}
-          isLoggingIn={isLoggingIn}
-          loginError={loginError}
-          nostrUser={nostrUser}
-        />
-      )}
-      
-      {gameState === GameState.OPTIONS && (
-        <SettingsScreen 
-          settings={settings} 
-          onUpdate={updateSettings} 
-          onBack={goToTitle} 
-        />
-      )}
-      
-      {gameState === GameState.PLAYING && (
-        <GameCanvas settings={settings} onGameOver={endGame} userAvatar={nostrUser?.picture} />
-      )}
+    <div className="w-full h-screen bg-[#010103] flex items-center justify-center overflow-hidden">
+      {/* Aspect Ratio Container for PC */}
+      <div 
+        className={`relative w-full h-full flex items-center justify-center ${gameState === GameState.PLAYING ? 'max-w-none max-h-none' : ''}`}
+        style={gameState === GameState.PLAYING ? {
+          aspectRatio: '9 / 16',
+          maxHeight: 'min(100vh, 100%)',
+          maxWidth: 'min(100vw, calc(100vh * 9 / 16))'
+        } : {}}
+      >
+        {gameState === GameState.TITLE && (
+          <TitleScreen 
+            onStart={startGame} 
+            onSettings={goToSettings} 
+            onLogin={loginNostr}
+            onOpenLeaderboard={loadLeaderboard}
+            isLoggingIn={isLoggingIn}
+            loginError={loginError}
+            nostrUser={nostrUser}
+          />
+        )}
+        
+        {gameState === GameState.OPTIONS && (
+          <SettingsScreen 
+            settings={settings} 
+            onUpdate={updateSettings} 
+            onBack={goToTitle} 
+          />
+        )}
+        
+        {gameState === GameState.PLAYING && (
+          <div className="w-full h-full relative overflow-hidden bg-black shadow-2xl border-x border-white/5">
+            <GameCanvas settings={settings} onGameOver={endGame} userAvatar={nostrUser?.picture} />
+          </div>
+        )}
 
-      {gameState === GameState.GAMEOVER && (
-        <ResultScreen 
-          score={lastScore} 
-          onRestart={startGame} 
-          onTitle={goToTitle} 
-          onSync={saveHighScore}
-          isSyncing={isSyncing}
-          isLoggedIn={!!nostrUser}
-        />
-      )}
+        {gameState === GameState.GAMEOVER && (
+          <ResultScreen 
+            score={lastScore} 
+            onRestart={startGame} 
+            onTitle={goToTitle} 
+            onSync={saveHighScore}
+            isSyncing={isSyncing}
+            isLoggedIn={!!nostrUser}
+          />
+        )}
 
-      {isLeaderboardOpen && (
-        <Leaderboard 
-          entries={leaderboard} 
-          isLoading={isLoadingLeaderboard}
-          onClose={() => setIsLeaderboardOpen(false)} 
-        />
-      )}
+        {isLeaderboardOpen && (
+          <Leaderboard 
+            entries={leaderboard} 
+            isLoading={isLoadingLeaderboard}
+            onClose={() => setIsLeaderboardOpen(false)} 
+          />
+        )}
+      </div>
     </div>
   );
 };

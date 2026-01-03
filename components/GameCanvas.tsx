@@ -45,24 +45,23 @@ interface GameCanvasProps {
 const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvatar }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [currentStretch, setCurrentStretch] = useState(0);
   
-  const isPC = dimensions.width > 768;
-  const wallWidth = isPC ? dimensions.width * 0.2 : 0;
-  const activeMinX = wallWidth;
-  const activeMaxX = dimensions.width - wallWidth;
+  // Use relative bounds based on container
+  const activeMinX = 0;
+  const activeMaxX = dimensions.width;
 
   const hasMoved = useRef(false);
   const isBroken = useRef(false);
   const breakTimeRef = useRef(0);
   
-  const targetInputPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 100 });
-  const anchorPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 100 });
-  const prevAnchorPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 100 });
+  const targetInputPos = useRef<Vector2D>({ x: 0, y: 0 });
+  const anchorPos = useRef<Vector2D>({ x: 0, y: 0 });
+  const prevAnchorPos = useRef<Vector2D>({ x: 0, y: 0 });
   
-  const ballPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 200 });
-  const prevBallPos = useRef<Vector2D>({ x: window.innerWidth / 2, y: 200 });
+  const ballPos = useRef<Vector2D>({ x: 0, y: 0 });
+  const prevBallPos = useRef<Vector2D>({ x: 0, y: 0 });
   const ballVel = useRef<Vector2D>({ x: 0, y: 0 });
   const ballRotation = useRef(0);
   const targetRotation = useRef(0);
@@ -92,34 +91,52 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
   };
 
   useEffect(() => {
-    const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        setDimensions({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight
+        });
+      }
+    };
+    
+    updateDimensions();
+    const observer = new ResizeObserver(updateDimensions);
+    if (containerRef.current) observer.observe(containerRef.current);
+    
+    return () => observer.disconnect();
   }, []);
 
   const spawnTarget = useCallback((type: TargetType = TargetType.YELLOW) => {
+    if (dimensions.width === 0) return;
     const margin = 50;
     const newTarget: Target = {
       id: Math.random().toString(36).substr(2, 9),
       type,
       pos: {
-        x: activeMinX + margin + Math.random() * (activeMaxX - activeMinX - margin * 2),
-        y: 100 + Math.random() * (window.innerHeight - 200)
+        x: margin + Math.random() * (dimensions.width - margin * 2),
+        y: 100 + Math.random() * (dimensions.height - 200)
       },
       radius: 15
     };
     targetsRef.current = [...targetsRef.current, newTarget];
-  }, [activeMinX, activeMaxX]);
+  }, [dimensions]);
 
   useEffect(() => {
-    spawnTarget(); spawnTarget(); spawnTarget();
-  }, [spawnTarget]);
+    if (dimensions.width > 0 && targetsRef.current.length === 0) {
+      spawnTarget(); spawnTarget(); spawnTarget();
+    }
+  }, [spawnTarget, dimensions]);
 
   const updateInputPos = (clientX: number, clientY: number) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    targetInputPos.current = { x: clientX - rect.left, y: clientY - rect.top };
-    if (!hasMoved.current) {
+    targetInputPos.current = { 
+      x: clientX - rect.left, 
+      y: clientY - rect.top 
+    };
+    
+    if (!hasMoved.current && dimensions.width > 0) {
       anchorPos.current = { ...targetInputPos.current };
       prevAnchorPos.current = { ...targetInputPos.current };
       ballPos.current = { x: anchorPos.current.x, y: anchorPos.current.y + 100 };
@@ -148,6 +165,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
   };
 
   useEffect(() => {
+    if (dimensions.width === 0) return;
+    
     let animationFrameId: number;
     let lastTime = performance.now();
     let accumulator = 0;
@@ -188,7 +207,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       if (ballPos.current.x - stats.ballRadius < activeMinX) { ballPos.current.x = activeMinX + stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       else if (ballPos.current.x + stats.ballRadius > activeMaxX) { ballPos.current.x = activeMaxX - stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       if (ballPos.current.y - stats.ballRadius < 0) { ballPos.current.y = stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
-      else if (ballPos.current.y + stats.ballRadius > window.innerHeight) { ballPos.current.y = window.innerHeight - stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
+      else if (ballPos.current.y + stats.ballRadius > dimensions.height) { ballPos.current.y = dimensions.height - stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
 
       if (stats.combo > 0) {
         stats.comboTimer -= 1 / TICK_RATE;
@@ -248,7 +267,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       stats.score += Math.floor(baseScore * multiplier);
 
       if (!isBroken.current) {
-        const canRecoverTime = stats.timeLeft > 30;
+        const canRecoverTime = stats.timeLeft > 10;
         
         if (t.type === TargetType.YELLOW) {
           if (canRecoverTime) stats.timeLeft += 1.0;
@@ -273,11 +292,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       const w = dimensions.width, h = dimensions.height;
       ctx.globalCompositeOperation = 'source-over';
       ctx.clearRect(0, 0, w, h);
-
-      if (isPC) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        ctx.fillRect(0, 0, activeMinX, h); ctx.fillRect(activeMaxX, 0, activeMinX, h);
-      }
 
       if (!hasMoved.current) {
         ctx.fillStyle = '#475569'; ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'center';
@@ -428,7 +442,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
     };
     animationFrameId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [settings, onGameOver, spawnTarget, dimensions, isPC, activeMinX, activeMaxX]);
+  }, [settings, onGameOver, spawnTarget, dimensions]);
 
   return (
     <div ref={containerRef} className="relative w-full h-full cursor-none overflow-hidden bg-black" onMouseMove={handleMouseMove} onTouchMove={handleTouchMove}>
