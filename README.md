@@ -1,45 +1,49 @@
 # Pendulum Rubber Action
 
-A high-intensity, physics-based action game where you control a pendulum on a rubber string. This game is an homage to the classic "Pendulumania" by CANO-Lab / naruto.
+ゴムひものついた振り子をマウス（またはタッチ）操作で操り、画面上のターゲットを破壊する、物理演算に基づいたハイテンション・アクションゲームです。本作品は、CANO-Lab / naruto 氏による名作「Pendulumania」へのオマージュとして制作されました。
 
-## 🕹️ How to Play
+## 🕹️ 遊び方
 
-### Basic Controls
-- **Full Mouse / Touch Operation**: The anchor point of the rubber string follows your cursor.
-- **Swing the Ball**: Move your mouse dynamically to swing the pendulum ball into the targets floating in the shaft.
+### 基本操作
+- **マウス / タッチ操作**: 画面上を動かすと、ゴムひもの「支柱（アンカー）」が追従します。
+- **振り子を振る**: アンカーを素早く動かし、遠心力と弾性を利用して鉄球をターゲットにぶつけます。
+- **ターゲット破壊**: ターゲットに触れることで破壊され、スコアと残り時間が加算されます。
 
-### The Core Mechanic: Tension & Evaluation
-The key to high scores is **stretching the rubber**. The further the rubber is stretched when you hit a target, the higher your evaluation and score.
+### コア・メカニクス: テンションと評価
+スコアを稼ぐ鍵は**「ゴムをどれだけ伸ばした状態で当てるか」**にあります。
 
-| Evaluation | Stretch Level | Base Score |
-| :--- | :--- | :--- |
-| **PERFECT (完璧)** | 90% - 100% | 1,000 pts |
-| **GREAT (秀逸)** | 70% - 89% | 500 pts |
-| **GOOD (優良)** | 40% - 69% | 200 pts |
-| **OK (可)** | 5% - 39% | 100 pts |
-| **FAIL (不可)** | < 5% | 0 pts |
+| 評価 | 伸長率 (Stretch) | 基本スコア | 特徴 |
+| :--- | :--- | :--- | :--- |
+| **完璧 (PERFECT)** | 90% - 100% | 1,000 pts | 最大の火花とスコア |
+| **秀逸 (GREAT)** | 70% - 89% | 500 pts | 高いスコア効率 |
+| **優良 (GOOD)** | 40% - 69% | 200 pts | 標準的なヒット |
+| **可 (OK)** | 5% - 39% | 100 pts | 牽制程度のヒット |
+| **不可 (FAIL)** | < 5% | 0 pts | スコア加算なし |
 
-⚠️ **DANGER**: If you stretch the rubber beyond **100%**, a warning appears. Holding it in the danger zone for too long will cause the rubber to **SNAP**, leading to an immediate Mission End!
+⚠️ **切断注意**: ゴムを **100%** 以上伸ばすと警告が表示されます。限界を超えた状態（DANGER）を維持しすぎると、ゴムが**「プツン」と切れてしまい**、即座にゲームオーバーとなります。
 
-## 📈 Scoring & Combos
-- **Combo System**: Every hit increases your combo.
-- **Multiplier**: Your final score per hit is calculated as:  
-  `Base Score × (1 + Combo × 0.1)`
-- **Combo Timer**: Hits must be chained within 5 seconds to maintain the combo.
+## 📈 スコア・コンボシステム
+- **コンボ**: 5秒以内にターゲットを連続して破壊するとコンボが繋がります。
+- **倍率 (Multiplier)**: 5コンボごとにスコア倍率が **2倍、4倍、8倍...** と倍々で増加します。
+- **巨大スコア表示**: 天文学的なスコアに対応するため、設定から「漢字表記（万、億、兆...無量大数）」と「指数表記」を切り替え可能です。
 
-## 🎯 Target Types
-Different targets provide various buffs to help you survive longer and reach higher scores:
+## 🎯 ターゲットの種類
+特定のターゲットを破壊すると、自機が強化されたり状況が変化したりします。
 
-- 🟡 **Yellow Target**: Standard target. Restores a small amount of time.
-- 🟢 **Green Target**: Recovery. Increases the maximum load of your rubber string and restores more time.
-- 🔴 **Red Target**: Power up. Increases the mass and radius of your ball, making it easier to hit targets, and restores a significant amount of time.
+- 🟡 **黄ターゲット**: 通常のターゲット。少量の時間を回復。
+- 🟢 **緑ターゲット**: 回復。ゴムの耐久上限（最大伸長距離）が増加し、時間も回復。
+- 🔴 **赤ターゲット**: 重量増加。鉄球が大きく重くなり、破壊しやすくなります。時間も大幅回復。
 
-## ⚙️ System Calibration
-In the **SETTINGS** menu, you can tweak the physics engine:
-- **Gravity**: Change how fast the ball falls.
-- **Rubber Elasticity (K)**: Adjust the "snappiness" of the string.
-- **Natural Length**: Change the resting length of the rubber.
-- **Collision Bounciness**: Adjust how much energy is retained when hitting walls.
+### 🌟 特殊ターゲット (10コンボ以上で出現)
+10コンボを超えると、一定確率(15%)で以下の特殊ボールが出現します。効果は10秒間です。
+
+- ⚪ **白ターゲット (Kinetic Chaos)**: 画面上の全ターゲットが意志を持ったように動き出し、壁に反射しながら飛び回ります。
+- ⚫ **黒ターゲット (Gravity Invert)**: 重力が反転し、鉄球やオブジェクトが「上」に向かって落下するようになります。
+
+## ⚙️ システム・設定
+- **キャリブレーション**: 設定画面で重力、弾性係数、ゴムの自然長、跳ね返り係数などを微調整して、自分好みのプレイフィールに変更できます。
+- **Nostr 連携**: Nostr プロトコル (Kind 30078) を使用したグローバルランキング機能を搭載。自分のハイスコアをリレーに刻み、世界中のプレイヤーと競うことができます。
+- **3D 背景**: プレイ中のテンションに同期して色や振動が変化する Three.js 製サイバー空間。
 
 ---
-*This game is a tribute to the mechanical beauty and addictive gameplay of "Pendulumania".*
+*このゲームは、「Pendulumania」の持つ物理演算の心地よさと、極限状態での駆け引きの美しさを現代のウェブ技術で表現することを目指しました。*
