@@ -243,12 +243,25 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       setEvals(prev => [...prev, { id: evalId, x: t.pos.x, y: t.pos.y, grade, stretchPercent }]);
       setTimeout(() => setEvals(p => p.filter(e => e.id !== evalId)), 2500);
 
-      stats.score += Math.floor(baseScore * (1 + stats.combo * 0.1));
+      const multiplier = Math.pow(2, Math.floor(stats.combo / 5));
+      stats.score += Math.floor(baseScore * multiplier);
+
       if (!isBroken.current) {
-        if (t.type === TargetType.YELLOW) stats.timeLeft += 1.0;
-        else if (t.type === TargetType.GREEN) { stats.rubberMaxLoad = Math.min(400, stats.rubberMaxLoad + 15); stats.timeLeft += 2.0; }
-        else if (t.type === TargetType.RED) { stats.ballMass += 0.2; stats.ballRadius += 2; stats.timeLeft += 3.0; }
+        // Time recovery logic: disabled when timeLeft <= 30
+        const canRecoverTime = stats.timeLeft > 30;
+        
+        if (t.type === TargetType.YELLOW) {
+          if (canRecoverTime) stats.timeLeft += 1.0;
+        } else if (t.type === TargetType.GREEN) {
+          stats.rubberMaxLoad = Math.min(400, stats.rubberMaxLoad + 15);
+          if (canRecoverTime) stats.timeLeft += 2.0;
+        } else if (t.type === TargetType.RED) {
+          stats.ballMass += 0.2;
+          stats.ballRadius += 2;
+          if (canRecoverTime) stats.timeLeft += 3.0;
+        }
       }
+      
       targetsRef.current.splice(index, 1);
       const roll = Math.random();
       spawnTarget(roll > 0.92 ? TargetType.RED : roll > 0.8 ? TargetType.GREEN : TargetType.YELLOW);
@@ -283,7 +296,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       const s = statsRef.current;
       const color = isBroken.current ? '#ef4444' : s.stretch > 1 ? '#ef4444' : s.stretch > 0.9 ? '#facc15' : '#3b82f6';
       
-      // Particles
       ctx.globalCompositeOperation = 'lighter';
       particlesRef.current.forEach(p => {
         ctx.globalAlpha = p.life;
@@ -293,13 +305,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       ctx.globalAlpha = 1.0;
       ctx.globalCompositeOperation = 'source-over';
 
-      // Rubber line
       if (!isBroken.current) {
         ctx.lineWidth = 2 + (s.stretch * 2); ctx.strokeStyle = color;
         ctx.beginPath(); ctx.moveTo(drawAnchor.x, drawAnchor.y); ctx.lineTo(drawBall.x, drawBall.y); ctx.stroke();
       }
 
-      // Anchor Point Visuals
       ctx.save();
       ctx.translate(drawAnchor.x, drawAnchor.y);
       ctx.strokeStyle = '#f8fafc';
@@ -316,7 +326,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       ctx.beginPath(); ctx.arc(0, 0, 1.5, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
 
-      // Ball Visuals
       ctx.save();
       ctx.translate(drawBall.x, drawBall.y);
       ctx.rotate(ballRotation.current);
@@ -335,7 +344,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       ctx.beginPath(); ctx.arc(0, 0, s.ballRadius, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
 
-      // Pattern (The Cross Pattern)
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -344,7 +352,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       ctx.stroke();
       ctx.restore();
 
-      // Targets Visuals
       targetsRef.current.forEach(t => {
         const tColor = TARGET_COLORS[t.type];
         ctx.save();
@@ -361,7 +368,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
         ctx.beginPath(); ctx.arc(0, 0, t.radius, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
 
-        // Visual pattern to show rotation
         ctx.strokeStyle = 'rgba(255,255,255,0.3)';
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -382,11 +388,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       if (uiRefs.score.current) uiRefs.score.current.textContent = s.score.toLocaleString();
       if (uiRefs.timer.current) uiRefs.timer.current.textContent = Math.max(0, s.timeLeft).toFixed(1);
       
-      // Combo and Combo Timer Updates
       if (uiRefs.combo.current && uiRefs.comboTimerContainer.current && uiRefs.comboTimerBar.current) {
         if (s.combo > 0) {
+          const multiplier = Math.pow(2, Math.floor(s.combo / 5));
+          const multText = multiplier > 1 ? ` (x${multiplier})` : '';
           uiRefs.combo.current.style.display = 'block';
-          uiRefs.combo.current.textContent = `${s.combo} Hits`;
+          uiRefs.combo.current.textContent = `${s.combo} Hits${multText}`;
           uiRefs.comboTimerContainer.current.style.display = 'block';
           const progress = Math.max(0, (s.comboTimer / COMBO_TIME_LIMIT) * 100);
           uiRefs.comboTimerBar.current.style.width = `${progress}%`;
@@ -396,7 +403,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
         }
       }
 
-      // Perfect Streak
       if (uiRefs.perfect.current) {
         if (s.perfectStreak > 0) {
           uiRefs.perfect.current.style.display = 'block';
