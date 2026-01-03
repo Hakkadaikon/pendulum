@@ -113,7 +113,10 @@ const TitleScreen: React.FC<TitleScreenProps> = ({
       </div>
 
       <div className="w-full flex flex-col items-center space-y-4 pt-4 border-t border-zinc-800/50">
-        <p className="text-cyan-400 text-xs font-medium">
+        <p className="text-cyan-400 font-black text-xs md:text-sm uppercase tracking-tighter italic">
+          This game is an homage to CANO-Lab / naruto - "Pendulumania"
+        </p>
+        <p className="text-cyan-600 text-[10px] md:text-xs font-medium">
           Move mouse to control. Avoid stretching &gt; 100%.
         </p>
         <p className="text-zinc-500 text-[10px] tracking-tight font-medium opacity-80">
