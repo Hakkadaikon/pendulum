@@ -11,6 +11,7 @@ import {
   BREAK_TIME_LIMIT,
   TARGET_COLORS,
   COMBO_TIME_LIMIT,
+  SPECIAL_EFFECT_DURATION,
   formatScore
 } from '../constants';
 import { GameSettings, Vector2D, Target, TargetType, GameStats } from '../types';
@@ -49,7 +50,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [currentStretch, setCurrentStretch] = useState(0);
   
-  // Use relative bounds based on container
   const activeMinX = 0;
   const activeMaxX = dimensions.width;
 
@@ -70,7 +70,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
   const statsRef = useRef<GameStats>({
     score: 0, combo: 0, comboTimer: 0, perfectStreak: 0, timeLeft: INITIAL_TIME,
     rubberMaxLoad: RUBBER_INITIAL_MAX_LEN, ballMass: BALL_INITIAL_MASS,
-    ballRadius: BALL_INITIAL_RADIUS, stretch: 0, dangerTime: 0
+    ballRadius: BALL_INITIAL_RADIUS, stretch: 0, dangerTime: 0,
+    whiteEffectTimer: 0, blackEffectTimer: 0
   });
 
   const targetsRef = useRef<Target[]>([]);
@@ -83,6 +84,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
     combo: useRef<HTMLDivElement>(null),
     comboTimerContainer: useRef<HTMLDivElement>(null),
     comboTimerBar: useRef<HTMLDivElement>(null),
+    whiteTimerBar: useRef<HTMLDivElement>(null),
+    blackTimerBar: useRef<HTMLDivElement>(null),
+    whiteTimerContainer: useRef<HTMLDivElement>(null),
+    blackTimerContainer: useRef<HTMLDivElement>(null),
     perfect: useRef<HTMLDivElement>(null),
     gauge: useRef<HTMLDivElement>(null),
     gaugeContainer: useRef<HTMLDivElement>(null),
@@ -118,7 +123,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
         x: margin + Math.random() * (dimensions.width - margin * 2),
         y: 100 + Math.random() * (dimensions.height - 200)
       },
-      radius: 15
+      radius: 15,
+      vel: (type === TargetType.WHITE || statsRef.current.whiteEffectTimer > 0) ? {
+        x: (Math.random() - 0.5) * 4,
+        y: (Math.random() - 0.5) * 4
+      } : undefined
     };
     targetsRef.current = [...targetsRef.current, newTarget];
   }, [dimensions]);
@@ -185,6 +194,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
         onGameOver(stats.score); return;
       }
 
+      // Update Special Timers
+      if (stats.whiteEffectTimer > 0) stats.whiteEffectTimer -= 1 / TICK_RATE;
+      if (stats.blackEffectTimer > 0) stats.blackEffectTimer -= 1 / TICK_RATE;
+
       prevAnchorPos.current = { ...anchorPos.current };
       prevBallPos.current = { ...ballPos.current };
       anchorPos.current.x += (targetInputPos.current.x - anchorPos.current.x) * 0.35;
@@ -193,7 +206,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       const dy = ballPos.current.y - anchorPos.current.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       stats.stretch = isBroken.current ? 0 : dist / stats.rubberMaxLoad;
-      let ax = 0, ay = stats.ballMass * settings.gravity;
+      
+      // Black Ball Effect: Invert Gravity
+      const currentGravity = stats.blackEffectTimer > 0 ? -settings.gravity : settings.gravity;
+      
+      let ax = 0, ay = stats.ballMass * currentGravity;
       if (!isBroken.current) {
         const fRubber = settings.rubberK * (dist - settings.naturalLen);
         const angle = Math.atan2(dy, dx);
@@ -205,6 +222,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       targetRotation.current += 0.04;
       ballPos.current.x += ballVel.current.x; ballPos.current.y += ballVel.current.y;
 
+      // Ball Wall Collisions
       if (ballPos.current.x - stats.ballRadius < activeMinX) { ballPos.current.x = activeMinX + stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       else if (ballPos.current.x + stats.ballRadius > activeMaxX) { ballPos.current.x = activeMaxX - stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       if (ballPos.current.y - stats.ballRadius < 0) { ballPos.current.y = stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
@@ -215,7 +233,17 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
         if (stats.comboTimer <= 0) { stats.combo = 0; stats.comboTimer = 0; stats.perfectStreak = 0; }
       }
 
+      // Update Targets Physics
       targetsRef.current.forEach((t, index) => {
+        // White Ball Effect: Apply velocity to targets
+        if (t.vel) {
+          t.pos.x += t.vel.x;
+          t.pos.y += t.vel.y;
+          // Target Wall Collisions
+          if (t.pos.x - t.radius < 0 || t.pos.x + t.radius > dimensions.width) { t.vel.x *= -1; }
+          if (t.pos.y - t.radius < 0 || t.pos.y + t.radius > dimensions.height) { t.vel.y *= -1; }
+        }
+
         const tdx = ballPos.current.x - t.pos.x;
         const tdy = ballPos.current.y - t.pos.y;
         if (Math.sqrt(tdx*tdx + tdy*tdy) < stats.ballRadius + t.radius) handleHit(t, index);
@@ -279,12 +307,30 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
           stats.ballMass += 0.2;
           stats.ballRadius += 2;
           if (canRecoverTime) stats.timeLeft += 3.0;
+        } else if (t.type === TargetType.WHITE) {
+          // Trigger Kinetic Chaos
+          stats.whiteEffectTimer = SPECIAL_EFFECT_DURATION;
+          targetsRef.current.forEach(target => {
+            if (!target.vel) {
+              target.vel = { x: (Math.random() - 0.5) * 6, y: (Math.random() - 0.5) * 6 };
+            }
+          });
+        } else if (t.type === TargetType.BLACK) {
+          // Trigger Gravity Inversion
+          stats.blackEffectTimer = SPECIAL_EFFECT_DURATION;
         }
       }
       
       targetsRef.current.splice(index, 1);
+      
+      // Spawning logic with special targets
       const roll = Math.random();
-      spawnTarget(roll > 0.92 ? TargetType.RED : roll > 0.8 ? TargetType.GREEN : TargetType.YELLOW);
+      if (stats.combo >= 10 && Math.random() < 0.15) {
+        // Spawn special
+        spawnTarget(Math.random() > 0.5 ? TargetType.WHITE : TargetType.BLACK);
+      } else {
+        spawnTarget(roll > 0.92 ? TargetType.RED : roll > 0.8 ? TargetType.GREEN : TargetType.YELLOW);
+      }
     };
 
     const draw = (alpha: number) => {
@@ -415,6 +461,24 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
         } else {
           uiRefs.combo.current.style.display = 'none';
           uiRefs.comboTimerContainer.current.style.display = 'none';
+        }
+      }
+
+      // Special Timers UI
+      if (uiRefs.whiteTimerContainer.current && uiRefs.whiteTimerBar.current) {
+        if (s.whiteEffectTimer > 0) {
+          uiRefs.whiteTimerContainer.current.style.display = 'block';
+          uiRefs.whiteTimerBar.current.style.width = `${(s.whiteEffectTimer / SPECIAL_EFFECT_DURATION) * 100}%`;
+        } else {
+          uiRefs.whiteTimerContainer.current.style.display = 'none';
+        }
+      }
+      if (uiRefs.blackTimerContainer.current && uiRefs.blackTimerBar.current) {
+        if (s.blackEffectTimer > 0) {
+          uiRefs.blackTimerContainer.current.style.display = 'block';
+          uiRefs.blackTimerBar.current.style.width = `${(s.blackEffectTimer / SPECIAL_EFFECT_DURATION) * 100}%`;
+        } else {
+          uiRefs.blackTimerContainer.current.style.display = 'none';
         }
       }
 

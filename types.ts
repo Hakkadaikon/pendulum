@@ -9,7 +9,9 @@ export enum GameState {
 export enum TargetType {
   YELLOW = 'YELLOW', // Normal
   GREEN = 'GREEN',   // Recovery
-  RED = 'RED'       // Mass up
+  RED = 'RED',       // Mass up
+  WHITE = 'WHITE',   // Kinetic Chaos
+  BLACK = 'BLACK'    // Gravity Invert
 }
 
 export type ScoreDisplayMode = 'scientific' | 'kanji';
@@ -24,6 +26,7 @@ export interface Target {
   type: TargetType;
   pos: Vector2D;
   radius: number;
+  vel?: Vector2D; // Added for moving targets
 }
 
 export interface GameSettings {
@@ -46,6 +49,8 @@ export interface GameStats {
   ballRadius: number;
   stretch: number;
   dangerTime: number;
+  whiteEffectTimer: number; // New
+  blackEffectTimer: number; // New
 }
 
 export interface NostrUser {
