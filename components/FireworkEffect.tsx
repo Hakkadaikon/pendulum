@@ -13,15 +13,15 @@ const FireworkEffect: React.FC<FireworkEffectProps> = ({ x, y, grade }) => {
   const settings = useMemo(() => {
     switch (grade) {
       case 'FAIL':
-        return { text: '不可', color: '#94a3b8', count: 0, size: 1, spread: 0, fontSize: '24px' };
+        return { text: '不可', color: '#94a3b8', count: 10, size: 0.5, spread: 50, fontSize: '24px' };
       case 'OK':
-        return { text: '可', color: '#22c55e', count: 8, size: 0.5, spread: 40, fontSize: '24px' };
+        return { text: '可', color: '#22c55e', count: 40, size: 0.8, spread: 150, fontSize: '32px' };
       case 'GOOD':
-        return { text: '優良', color: '#eab308', count: 12, size: 0.8, spread: 70, fontSize: '32px' };
+        return { text: '優良', color: '#eab308', count: 80, size: 1.2, spread: 300, fontSize: '48px' };
       case 'GREAT':
-        return { text: '秀逸', color: '#f97316', count: 20, size: 1.2, spread: 100, fontSize: '40px' };
+        return { text: '秀逸', color: '#f97316', count: 150, size: 1.8, spread: 450, fontSize: '64px' };
       case 'PERFECT':
-        return { text: '完璧', color: '#ef4444', count: 32, size: 2.0, spread: 160, fontSize: '56px' };
+        return { text: '完璧', color: '#ef4444', count: 280, size: 2.5, spread: 700, fontSize: '80px' };
       default:
         return null;
     }
@@ -30,10 +30,18 @@ const FireworkEffect: React.FC<FireworkEffectProps> = ({ x, y, grade }) => {
   if (!settings) return null;
 
   const particles = Array.from({ length: settings.count }).map((_, i) => {
-    const angle = (i / settings.count) * Math.PI * 2;
-    const distance = settings.spread * (0.5 + Math.random() * 0.5);
+    // Distribute more particles toward the edge for a "ring" effect at high counts
+    const angle = (i / settings.count) * Math.PI * 2 + (Math.random() * 0.5);
+    const distFactor = Math.random() * 0.7 + 0.3; // More particles away from center
+    const distance = settings.spread * distFactor;
+    
     const tx = Math.cos(angle) * distance;
     const ty = Math.sin(angle) * distance;
+    
+    // Randomize individual particle behavior
+    const duration = 0.8 + Math.random() * 0.8;
+    const delay = Math.random() * 0.15;
+    const pSize = (2 + Math.random() * 4) * settings.size;
 
     return (
       <div
@@ -43,11 +51,13 @@ const FireworkEffect: React.FC<FireworkEffectProps> = ({ x, y, grade }) => {
           left: x,
           top: y,
           backgroundColor: settings.color,
-          width: `${4 * settings.size}px`,
-          height: `${4 * settings.size}px`,
+          width: `${pSize}px`,
+          height: `${pSize}px`,
           '--tw-translate-x': `${tx}px`,
           '--tw-translate-y': `${ty}px`,
-          boxShadow: `0 0 ${10 * settings.size}px ${settings.color}`,
+          '--p-duration': `${duration}s`,
+          '--p-delay': `${delay}s`,
+          boxShadow: `0 0 ${pSize * 2}px ${settings.color}, 0 0 ${pSize * 4}px ${settings.color}88`,
         } as React.CSSProperties}
       />
     );

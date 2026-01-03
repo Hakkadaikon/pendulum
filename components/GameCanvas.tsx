@@ -226,23 +226,47 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver }) => {
       stats.comboTimer = COMBO_TIME_LIMIT; // Reset combo timer to 5s
 
       let grade: EvalGrade = 'FAIL';
-      let mult = 0;
+      let baseScore = 0;
       const s = isBroken.current ? 0 : stats.stretch;
 
       if (!isBroken.current) {
-        if (s >= 0.9) { grade = 'PERFECT'; stats.perfectStreak += 1; mult = Math.min(200, stats.perfectStreak * 10); }
-        else if (s >= 0.7) { grade = 'GREAT'; stats.perfectStreak = 0; mult = 5; }
-        else if (s >= 0.4) { grade = 'GOOD'; stats.perfectStreak = 0; mult = 1; }
-        else if (s > 0.05) { grade = 'OK'; stats.perfectStreak = 0; mult = 1; }
+        if (s >= 0.9) { 
+          grade = 'PERFECT'; 
+          stats.perfectStreak += 1; 
+          baseScore = 1000; 
+        }
+        else if (s >= 0.7) { 
+          grade = 'GREAT'; 
+          stats.perfectStreak = 0; 
+          baseScore = 500; 
+        }
+        else if (s >= 0.4) { 
+          grade = 'GOOD'; 
+          stats.perfectStreak = 0; 
+          baseScore = 200; 
+        }
+        else if (s > 0.05) { 
+          grade = 'OK'; 
+          stats.perfectStreak = 0; 
+          baseScore = 100; 
+        } else {
+          grade = 'FAIL';
+          stats.perfectStreak = 0;
+          baseScore = 0;
+        }
       } else {
-        grade = 'OK'; mult = 1; // Can still hit targets after break for fun
+        grade = 'OK'; 
+        baseScore = 100; // Minimal score when broken
       }
 
       const fwId = Math.random().toString(36).substr(2, 9);
       setFireworks(prev => [...prev, { id: fwId, x: t.pos.x, y: t.pos.y, grade }]);
       setTimeout(() => setFireworks(p => p.filter(f => f.id !== fwId)), 1500);
 
-      stats.score += 100 * mult;
+      // Final Score = BaseScore * (1 + Combo * 0.1)
+      const bonusMult = 1 + (stats.combo * 0.1);
+      stats.score += Math.floor(baseScore * bonusMult);
+
       if (!isBroken.current) {
         if (t.type === TargetType.YELLOW) stats.timeLeft += 1.0;
         else if (t.type === TargetType.GREEN) { stats.rubberMaxLoad = Math.min(400, stats.rubberMaxLoad + 15); stats.timeLeft += 2.0; }
