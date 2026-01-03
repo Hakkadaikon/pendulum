@@ -23,12 +23,12 @@ const TitleScreen: React.FC<TitleScreenProps> = ({
   nostrUser 
 }) => {
   return (
-    <div className="flex flex-col items-center justify-center space-y-12 text-white text-center p-8 bg-zinc-900 rounded-3xl shadow-2xl border border-zinc-800">
+    <div className="flex flex-col items-center justify-center space-y-8 md:space-y-12 text-white text-center p-6 md:p-8 bg-zinc-900 rounded-3xl shadow-2xl border border-zinc-800 w-full max-w-[90vw] md:max-w-md mx-auto">
       <div className="relative">
-        <h1 className="text-6xl font-black italic tracking-tighter text-blue-500 mb-2">
+        <h1 className="text-5xl md:text-6xl font-black italic tracking-tighter text-blue-500 mb-2">
           PENDULUM
         </h1>
-        <h2 className="text-4xl font-bold tracking-widest text-zinc-400">
+        <h2 className="text-3xl md:text-4xl font-bold tracking-widest text-zinc-400">
           RUBBER ACTION
         </h2>
         {nostrUser && (
@@ -47,21 +47,21 @@ const TitleScreen: React.FC<TitleScreenProps> = ({
         )}
       </div>
 
-      <div className="bg-zinc-950 p-6 rounded-xl border border-zinc-800 max-w-sm">
+      <div className="bg-zinc-950 p-4 md:p-6 rounded-xl border border-zinc-800 w-full">
         <div className="flex items-center justify-center mb-4 text-blue-400">
           <MousePointer2 className="w-8 h-8 animate-bounce" />
         </div>
-        <p className="text-zinc-400 text-sm leading-relaxed">
-          Full Mouse Operation. <br />
+        <p className="text-zinc-400 text-xs md:text-sm leading-relaxed">
+          Full Mouse / Touch Operation. <br />
           Swing the ball. Break targets. <br />
           Don't snap the rubber!
         </p>
       </div>
 
-      <div className="flex flex-col space-y-4 w-full max-w-xs">
+      <div className="flex flex-col space-y-3 md:space-y-4 w-full max-w-xs">
         <button
           onClick={onStart}
-          className="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-full transition-all transform hover:scale-105 active:scale-95 shadow-lg shadow-blue-600/20"
+          className="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 md:py-4 px-8 rounded-full transition-all transform hover:scale-105 active:scale-95 shadow-lg shadow-blue-600/20"
         >
           <Play fill="currentColor" size={20} />
           <span>START MISSION</span>
@@ -69,9 +69,9 @@ const TitleScreen: React.FC<TitleScreenProps> = ({
         
         <button
           onClick={onOpenLeaderboard}
-          className="flex items-center justify-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 px-8 rounded-full transition-all border border-zinc-700"
+          className="flex items-center justify-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-2 md:py-3 px-8 rounded-full transition-all border border-zinc-700"
         >
-          <Globe size={20} className="text-cyan-400" />
+          <Globe size={18} className="text-cyan-400" />
           <span>GLOBAL RANKING</span>
         </button>
 
@@ -80,18 +80,18 @@ const TitleScreen: React.FC<TitleScreenProps> = ({
             <button
               onClick={onLogin}
               disabled={isLoggingIn}
-              className={`flex items-center justify-center space-x-2 font-bold py-3 px-8 rounded-full transition-all border ${
+              className={`flex items-center justify-center space-x-2 font-bold py-2 md:py-3 px-8 rounded-full transition-all border ${
                 loginError 
                 ? 'bg-red-900/20 border-red-500/50 text-red-400 hover:bg-red-900/30' 
                 : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-white'
-              } disabled:opacity-50`}
+              } disabled:opacity-50 text-sm`}
             >
               {isLoggingIn ? (
-                <User size={20} className="animate-spin" />
+                <User size={18} className="animate-spin" />
               ) : loginError ? (
-                <AlertCircle size={20} />
+                <AlertCircle size={18} />
               ) : (
-                <User size={20} />
+                <User size={18} />
               )}
               <span>{isLoggingIn ? "CONNECTING..." : loginError ? "RETRY LOGIN" : "NOSTR LOGIN"}</span>
             </button>
@@ -105,23 +105,25 @@ const TitleScreen: React.FC<TitleScreenProps> = ({
 
         <button
           onClick={onSettings}
-          className="flex items-center justify-center space-x-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-500 font-bold py-3 px-8 rounded-full transition-all"
+          className="flex items-center justify-center space-x-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-500 font-bold py-2 md:py-3 px-8 rounded-full transition-all text-sm"
         >
-          <Settings size={20} />
+          <Settings size={18} />
           <span>SETTINGS</span>
         </button>
       </div>
 
-      <div className="w-full flex flex-col items-center space-y-4 pt-4 border-t border-zinc-800/50">
-        <p className="text-cyan-400 font-black text-xs md:text-sm uppercase tracking-tighter italic">
+      <div className="w-full flex flex-col items-center space-y-4 pt-4 md:pt-6 border-t border-zinc-800/50">
+        <p className="text-cyan-400 font-black text-sm md:text-base uppercase tracking-tighter italic drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]">
           This game is an homage to CANO-Lab / naruto - "Pendulumania"
         </p>
-        <p className="text-cyan-600 text-[10px] md:text-xs font-medium">
-          Move mouse to control. Avoid stretching &gt; 100%.
-        </p>
-        <p className="text-zinc-500 text-[10px] tracking-tight font-medium opacity-80">
-          Sync scores with NIP-33 / Kind 30078
-        </p>
+        <div className="space-y-1">
+          <p className="text-cyan-600/80 text-[10px] md:text-xs font-bold uppercase tracking-widest">
+            Touch or Drag to control
+          </p>
+          <p className="text-zinc-500 text-[10px] tracking-tight font-medium opacity-60">
+            Sync scores with NIP-33 / Kind 30078
+          </p>
+        </div>
       </div>
     </div>
   );
