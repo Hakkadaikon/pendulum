@@ -11,7 +11,8 @@
       margin: 0;
       padding: 0;
       background-color: #000;
-      overflow: hidden;
+      /* Changed from hidden to auto to allow access to the game when window is too small */
+      overflow: auto; 
       user-select: none;
       font-family: 'Courier New', Courier, monospace;
       touch-action: none;
@@ -63,6 +64,15 @@
       animation: eval-fade-out 2.5s cubic-bezier(0.2, 0, 0.2, 1) forwards;
       z-index: 50;
       text-shadow: 0 0 15px rgba(0,0,0,0.9), 0 0 30px currentColor;
+    }
+    
+    /* Ensure the root allows for the minimum size scroll */
+    #root {
+      min-width: 450px;
+      min-height: 650px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
   </style>
 <script type="importmap">

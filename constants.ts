@@ -37,19 +37,28 @@ export const RUBBER_INITIAL_MAX_LEN = 200;
 
 /**
  * Formats a score based on the chosen display mode.
+ * Supports up to Muryo-taisu (10^68) for Kanji notation.
+ * Automatically switches to scientific notation if exceeded.
  */
 export const formatScore = (num: number, mode: ScoreDisplayMode) => {
   if (num === 0) return "0";
-  if (num < 10000) return Math.floor(num).toLocaleString();
+  if (!isFinite(num)) return "∞ (無限)";
   
-  if (mode === 'scientific') {
-    if (num >= 10000000) {
+  // Force scientific if mode is scientific OR if num exceeds Muryo-taisu (10^72)
+  if (mode === 'scientific' || num >= 1e72) {
+    if (num >= 10000) {
       return num.toExponential(3);
     }
     return Math.floor(num).toLocaleString();
   }
 
-  const units = ["", "万", "億", "兆", "京", "垓", "𥝱", "穣", "溝", "澗", "正", "載", "極", "恒河沙", "阿僧祇", "那由他", "不可思議", "無量大数"];
+  if (num < 10000) return Math.floor(num).toLocaleString();
+
+  // Japanese Standard Units up to Muryo-taisu
+  // Each unit corresponds to 10^(4*index)
+  const units = [
+    "", "万", "億", "兆", "京", "垓", "𥝱", "穣", "溝", "澗", "正", "載", "極", "恒河沙", "阿僧祇", "那由他", "不可思議", "無量大数"
+  ];
   
   const getPlainString = (n: number) => {
     const s = n.toString();
@@ -66,6 +75,8 @@ export const formatScore = (num: number, mode: ScoreDisplayMode) => {
   const fullStr = getPlainString(num);
   const allParts = [];
   let unitCounter = 0;
+  
+  // Progress from the end of the string, 4 digits at a time
   for (let i = fullStr.length; i > 0; i -= 4) {
     const start = Math.max(0, i - 4);
     const val = parseInt(fullStr.substring(start, i));
@@ -75,5 +86,6 @@ export const formatScore = (num: number, mode: ScoreDisplayMode) => {
     unitCounter++;
   }
 
-  return allParts.slice(0, 2).join("");
+  // Display top 2 unit levels for readability (e.g., 1京2345兆)
+  return allParts.slice(0, 2).join("") || "0";
 };
