@@ -339,8 +339,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       ctx.clearRect(0, 0, w, h);
 
       if (!hasMoved.current) {
-        ctx.fillStyle = '#475569'; ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText('MOVE TO INITIALIZE SYSTEM', w / 2, h / 2); return;
+        const message = 'MOVE TO INITIALIZE SYSTEM';
+        // Responsive font calculation for initialization message
+        const baseFontSize = 24;
+        const responsiveFontSize = Math.min(baseFontSize, (w * 0.9) / (message.length * 0.55));
+        
+        ctx.fillStyle = '#475569'; 
+        ctx.font = `bold ${responsiveFontSize}px sans-serif`; 
+        ctx.textAlign = 'center';
+        ctx.fillText(message, w / 2, h / 2); 
+        return;
       }
 
       const drawAnchor = {
