@@ -124,14 +124,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
   const spawnTarget = useCallback((type: TargetType = TargetType.YELLOW) => {
     if (dimensions.width === 0) return;
     const margin = 50;
-    // Account for HUD_BOTTOM_MARGIN in Y position spawning
+    // Account for HUD_BOTTOM_MARGIN in Y position spawning (Play area is top 90%)
     const usableHeight = dimensions.height - HUD_BOTTOM_MARGIN - (margin * 2);
     const newTarget: Target = {
       id: Math.random().toString(36).substr(2, 9),
       type,
       pos: {
         x: margin + Math.random() * (dimensions.width - margin * 2),
-        y: margin + Math.random() * usableHeight
+        y: margin + Math.random() * Math.max(0, usableHeight)
       },
       radius: type === TargetType.CHEST ? 20 : 15,
       vel: (type === TargetType.WHITE || statsRef.current.whiteEffectTimer > 0) ? {
@@ -235,7 +235,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       targetRotation.current += 0.04;
       ballPos.current.x += ballVel.current.x; ballPos.current.y += ballVel.current.y;
 
-      // Ball boundaries adjusted for bottom HUD
+      // Ball boundaries adjusted for bottom HUD (Don't let ball go into the tension gauge area)
       if (ballPos.current.x - stats.ballRadius < activeMinX) { ballPos.current.x = activeMinX + stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       else if (ballPos.current.x + stats.ballRadius > activeMaxX) { ballPos.current.x = activeMaxX - stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       if (ballPos.current.y - stats.ballRadius < 0) { ballPos.current.y = stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
@@ -339,16 +339,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       ctx.clearRect(0, 0, w, h);
 
       if (!hasMoved.current) {
+        // Responsive message font calculation
         const message = 'MOVE TO INITIALIZE SYSTEM';
-        // Responsive font calculation for initialization message
         const baseFontSize = 24;
         const responsiveFontSize = Math.min(baseFontSize, (w * 0.9) / (message.length * 0.55));
         
         ctx.fillStyle = '#475569'; 
         ctx.font = `bold ${responsiveFontSize}px sans-serif`; 
         ctx.textAlign = 'center';
-        ctx.fillText(message, w / 2, h / 2); 
-        return;
+        ctx.fillText(message, w / 2, h / 2); return;
       }
 
       const drawAnchor = {
