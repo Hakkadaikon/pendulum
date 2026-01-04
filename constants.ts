@@ -39,6 +39,7 @@ export const RUBBER_INITIAL_MAX_LEN = 200;
  * Formats a score based on the chosen display mode.
  * Supports up to Muryo-taisu (10^68) for Kanji notation.
  * Automatically switches to scientific notation if exceeded.
+ * Threshold changed to 8 digits (10,000,000) per user request.
  */
 export const formatScore = (num: number, mode: ScoreDisplayMode) => {
   if (num === 0) return "0";
@@ -46,13 +47,13 @@ export const formatScore = (num: number, mode: ScoreDisplayMode) => {
   
   // Force scientific if mode is scientific OR if num exceeds Muryo-taisu (10^72)
   if (mode === 'scientific' || num >= 1e72) {
-    if (num >= 10000) {
+    if (num >= 10000000) { // Changed from 10000 to 10000000
       return num.toExponential(3);
     }
     return Math.floor(num).toLocaleString();
   }
 
-  if (num < 10000) return Math.floor(num).toLocaleString();
+  if (num < 10000000) return Math.floor(num).toLocaleString(); // Changed from 10000 to 10000000
 
   // Japanese Standard Units up to Muryo-taisu
   // Each unit corresponds to 10^(4*index)

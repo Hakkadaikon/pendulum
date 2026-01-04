@@ -492,7 +492,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       if (uiRefs.combo.current && uiRefs.comboTimerContainer.current && uiRefs.comboTimerBar.current) {
         if (s.combo > 0) {
           const multiplier = Math.pow(2, Math.floor(s.combo / 5));
-          const multText = multiplier > 1 ? ` (x${multiplier})` : '';
+          const formattedMult = formatScore(multiplier, settings.scoreDisplayMode); // Format multiplier using settings
+          const multText = multiplier > 1 ? ` (x${formattedMult})` : '';
           if (uiRefs.combo.current.style.display !== 'block') uiRefs.combo.current.style.display = 'block';
           uiRefs.combo.current.textContent = `${s.combo} Hits${multText}`;
           if (uiRefs.comboTimerContainer.current.style.display !== 'block') uiRefs.comboTimerContainer.current.style.display = 'block';
