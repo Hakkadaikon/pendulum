@@ -244,9 +244,9 @@ const App: React.FC = () => {
         className={`relative flex items-center justify-center ${gameState === GameState.PLAYING ? 'shadow-2xl' : ''}`}
         style={{
           minWidth: '350px',
-          minHeight: '550px',
           width: gameState === GameState.PLAYING ? 'clamp(350px, calc(95dvh * 9 / 16), 100vw)' : '350px',
-          height: gameState === GameState.PLAYING ? 'clamp(550px, 95dvh, 100vh)' : '550px',
+          height: gameState === GameState.PLAYING ? 'clamp(550px, 95dvh, 100vh)' : (gameState === GameState.OPTIONS ? 'clamp(550px, 90dvh, 100vh)' : '550px'),
+          maxHeight: '100dvh',
           aspectRatio: gameState === GameState.PLAYING ? '9 / 16' : 'unset',
         }}
       >
