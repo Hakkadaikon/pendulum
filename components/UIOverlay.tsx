@@ -26,7 +26,7 @@ interface UIOverlayProps {
 
 const UIOverlay: React.FC<UIOverlayProps> = ({ refs }) => {
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-6 select-none font-mono">
+    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-6 pb-12 md:pb-16 select-none font-mono">
       {/* Top Bar */}
       <div className="flex justify-between items-start gap-2">
         <div className="bg-zinc-900/80 p-3 md:p-4 rounded-xl border border-zinc-700 flex items-center space-x-2 md:space-x-4 shadow-lg backdrop-blur-sm">

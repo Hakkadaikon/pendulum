@@ -239,18 +239,16 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#010103] flex items-center justify-center">
+    <div className="w-full h-full bg-[#010103] flex items-center justify-center p-2">
       <div 
         className={`relative flex items-center justify-center ${gameState === GameState.PLAYING ? 'shadow-2xl' : ''}`}
         style={{
           width: '100%',
           height: '100%',
-          minWidth: '450px',
-          minHeight: '650px',
-          // aspect ratio 9/16 for playing, or fit normally for screens
+          // Use dynamic viewport height to fit strictly on screen
           aspectRatio: gameState === GameState.PLAYING ? '9 / 16' : 'unset',
-          maxHeight: gameState === GameState.PLAYING ? 'min(100vh, 100%)' : 'unset',
-          maxWidth: gameState === GameState.PLAYING ? 'min(100vw, calc(100vh * 9 / 16))' : '450px'
+          maxHeight: '100dvh',
+          maxWidth: gameState === GameState.PLAYING ? 'calc(100dvh * 9 / 16)' : '400px',
         }}
       >
         {gameState === GameState.TITLE && (
@@ -274,7 +272,7 @@ const App: React.FC = () => {
         )}
         
         {gameState === GameState.PLAYING && (
-          <div className="w-full h-full relative overflow-hidden bg-black shadow-2xl border-x border-white/5" style={{ minWidth: '450px', minHeight: '650px' }}>
+          <div className="w-full h-full relative overflow-hidden bg-black shadow-2xl border-x border-white/5">
             <GameCanvas settings={settings} onGameOver={endGame} userAvatar={nostrUser?.picture} />
           </div>
         )}

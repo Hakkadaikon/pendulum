@@ -45,6 +45,9 @@ interface GameCanvasProps {
   userAvatar?: string;
 }
 
+// Play area margin to account for bottom HUD (Tension Gauge)
+const HUD_BOTTOM_MARGIN = 90; 
+
 const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvatar }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -121,14 +124,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
   const spawnTarget = useCallback((type: TargetType = TargetType.YELLOW) => {
     if (dimensions.width === 0) return;
     const margin = 50;
+    // Account for HUD_BOTTOM_MARGIN in Y position spawning
+    const usableHeight = dimensions.height - HUD_BOTTOM_MARGIN - (margin * 2);
     const newTarget: Target = {
       id: Math.random().toString(36).substr(2, 9),
       type,
       pos: {
         x: margin + Math.random() * (dimensions.width - margin * 2),
-        y: 100 + Math.random() * (dimensions.height - 200)
+        y: margin + Math.random() * usableHeight
       },
-      radius: type === TargetType.CHEST ? 20 : 15, // Chest is slightly larger
+      radius: type === TargetType.CHEST ? 20 : 15,
       vel: (type === TargetType.WHITE || statsRef.current.whiteEffectTimer > 0) ? {
         x: (Math.random() - 0.5) * 4,
         y: (Math.random() - 0.5) * 4
@@ -230,10 +235,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       targetRotation.current += 0.04;
       ballPos.current.x += ballVel.current.x; ballPos.current.y += ballVel.current.y;
 
+      // Ball boundaries adjusted for bottom HUD
       if (ballPos.current.x - stats.ballRadius < activeMinX) { ballPos.current.x = activeMinX + stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       else if (ballPos.current.x + stats.ballRadius > activeMaxX) { ballPos.current.x = activeMaxX - stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       if (ballPos.current.y - stats.ballRadius < 0) { ballPos.current.y = stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
-      else if (ballPos.current.y + stats.ballRadius > dimensions.height) { ballPos.current.y = dimensions.height - stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
+      else if (ballPos.current.y + stats.ballRadius > dimensions.height - HUD_BOTTOM_MARGIN) { ballPos.current.y = dimensions.height - HUD_BOTTOM_MARGIN - stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
 
       if (stats.combo > 0) {
         stats.comboTimer -= 1 / TICK_RATE;
@@ -241,7 +247,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       }
 
       targetsRef.current.forEach((t, index) => {
-        // Sparkle effect for chest
         if (t.type === TargetType.CHEST && Math.random() < 0.1) {
             spawnParticles(t.pos.x + (Math.random()-0.5)*20, t.pos.y + (Math.random()-0.5)*20, '#fcd34d', 1, 10, 0.4);
         }
@@ -250,7 +255,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
           t.pos.x += t.vel.x;
           t.pos.y += t.vel.y;
           if (t.pos.x - t.radius < 0 || t.pos.x + t.radius > dimensions.width) { t.vel.x *= -1; }
-          if (t.pos.y - t.radius < 0 || t.pos.y + t.radius > dimensions.height) { t.vel.y *= -1; }
+          // Account for HUD margin in target movement
+          if (t.pos.y - t.radius < 0 || t.pos.y + t.radius > dimensions.height - HUD_BOTTOM_MARGIN) { t.vel.y *= -1; }
         }
 
         const tdx = ballPos.current.x - t.pos.x;
@@ -414,20 +420,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
         ctx.rotate(targetRotation.current);
 
         if (t.type === TargetType.CHEST) {
-          // Draw a real treasure chest box
           const r = t.radius;
           const chestGrad = ctx.createLinearGradient(0, -r, 0, r);
-          chestGrad.addColorStop(0, '#fbbf24'); // Top gold
-          chestGrad.addColorStop(1, '#92400e'); // Bottom brown-gold
+          chestGrad.addColorStop(0, '#fbbf24');
+          chestGrad.addColorStop(1, '#92400e');
 
-          // Main body (rectangular box)
           ctx.fillStyle = chestGrad;
           ctx.beginPath();
-          // ctx.roundRect(-r * 1.2, -r * 0.8, r * 2.4, r * 1.6, 4); // Basic rectangle
           ctx.rect(-r * 1.2, -r * 0.8, r * 2.4, r * 1.6);
           ctx.fill();
 
-          // Lid separation line
           ctx.strokeStyle = '#451a03';
           ctx.lineWidth = 2;
           ctx.beginPath();
@@ -435,12 +437,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
           ctx.lineTo(r * 1.2, -r * 0.1);
           ctx.stroke();
 
-          // Straps (iron bands)
           ctx.fillStyle = '#451a03';
           ctx.fillRect(-r * 0.8, -r * 0.8, r * 0.3, r * 1.6);
           ctx.fillRect(r * 0.5, -r * 0.8, r * 0.3, r * 1.6);
 
-          // Lock / Latch
           ctx.fillStyle = '#fff';
           ctx.beginPath();
           ctx.rect(-r * 0.2, -r * 0.25, r * 0.4, r * 0.5);
@@ -449,7 +449,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
           ctx.lineWidth = 1;
           ctx.stroke();
 
-          // Highlight / Shine
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
           ctx.lineWidth = 1.5;
           ctx.beginPath();
@@ -457,7 +456,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
           ctx.lineTo(-r * 0.6, -r * 0.6);
           ctx.stroke();
           
-          // Glow around chest
           ctx.globalAlpha = 0.2;
           ctx.shadowBlur = 15;
           ctx.shadowColor = '#fcd34d';
@@ -485,10 +483,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       }
 
       const now = performance.now();
-      if (now - lastStatsSync > 60) { 
+      if (now - lastUIUpdate.current > 60) { 
         setCurrentStretch(s.stretch); 
         updateUI();
-        lastStatsSync = now; 
+        lastUIUpdate.current = now; 
       }
     };
 

@@ -11,8 +11,7 @@
       margin: 0;
       padding: 0;
       background-color: #000;
-      /* Changed from hidden to auto to allow access to the game when window is too small */
-      overflow: auto; 
+      overflow: hidden; 
       user-select: none;
       font-family: 'Courier New', Courier, monospace;
       touch-action: none;
@@ -66,10 +65,9 @@
       text-shadow: 0 0 15px rgba(0,0,0,0.9), 0 0 30px currentColor;
     }
     
-    /* Ensure the root allows for the minimum size scroll */
     #root {
-      min-width: 450px;
-      min-height: 650px;
+      width: 100vw;
+      height: 100dvh;
       display: flex;
       justify-content: center;
       align-items: center;
