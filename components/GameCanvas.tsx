@@ -45,7 +45,10 @@ interface GameCanvasProps {
   userAvatar?: string;
 }
 
-const HUD_BOTTOM_MARGIN = 90; 
+// Minimal margin to allow movement behind the UI but prevent clipping out of the red frame
+const PHYSICS_BOTTOM_MARGIN = 10; 
+// Targets should mostly stay visible, so we keep them slightly higher than the HUD elements
+const TARGET_SPAWN_LIMIT_Y = 100;
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvatar }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -123,7 +126,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
   const spawnTarget = useCallback((type: TargetType = TargetType.YELLOW) => {
     if (dimensions.width === 0) return;
     const margin = 50;
-    const usableHeight = dimensions.height - HUD_BOTTOM_MARGIN - (margin * 2);
+    // Targets spawn within a slightly restricted area to ensure visibility
+    const usableHeight = dimensions.height - TARGET_SPAWN_LIMIT_Y - margin;
     const newTarget: Target = {
       id: Math.random().toString(36).substr(2, 9),
       type,
@@ -232,10 +236,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       targetRotation.current += 0.04;
       ballPos.current.x += ballVel.current.x; ballPos.current.y += ballVel.current.y;
 
+      // Physics boundaries now use PHYSICS_BOTTOM_MARGIN (10px) to allow moving behind the UI
       if (ballPos.current.x - stats.ballRadius < activeMinX) { ballPos.current.x = activeMinX + stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       else if (ballPos.current.x + stats.ballRadius > activeMaxX) { ballPos.current.x = activeMaxX - stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       if (ballPos.current.y - stats.ballRadius < 0) { ballPos.current.y = stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
-      else if (ballPos.current.y + stats.ballRadius > dimensions.height - HUD_BOTTOM_MARGIN) { ballPos.current.y = dimensions.height - HUD_BOTTOM_MARGIN - stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
+      else if (ballPos.current.y + stats.ballRadius > dimensions.height - PHYSICS_BOTTOM_MARGIN) { ballPos.current.y = dimensions.height - PHYSICS_BOTTOM_MARGIN - stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
 
       if (stats.combo > 0) {
         stats.comboTimer -= 1 / TICK_RATE;
@@ -250,8 +255,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
         if (t.vel) {
           t.pos.x += t.vel.x;
           t.pos.y += t.vel.y;
+          // Moving targets also use the expanded boundaries
           if (t.pos.x - t.radius < 0 || t.pos.x + t.radius > dimensions.width) { t.vel.x *= -1; }
-          if (t.pos.y - t.radius < 0 || t.pos.y + t.radius > dimensions.height - HUD_BOTTOM_MARGIN) { t.vel.y *= -1; }
+          if (t.pos.y - t.radius < 0 || t.pos.y + t.radius > dimensions.height - PHYSICS_BOTTOM_MARGIN) { t.vel.y *= -1; }
         }
 
         const tdx = ballPos.current.x - t.pos.x;
@@ -437,7 +443,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
           ctx.stroke();
           ctx.fillStyle = '#451a03';
           ctx.fillRect(-r * 0.8, -r * 0.8, r * 0.3, r * 1.6);
-          ctx.fillRect(r * 0.5, -r * 0.8, r * 0.3, r * 1.6);
+          ctx.fillRect(r * 0.5, -r * 0.3, r * 0.3, r * 1.6);
           ctx.fillStyle = '#fff';
           ctx.beginPath();
           ctx.rect(-r * 0.2, -r * 0.25, r * 0.4, r * 0.5);
@@ -492,7 +498,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       if (uiRefs.combo.current && uiRefs.comboTimerContainer.current && uiRefs.comboTimerBar.current) {
         if (s.combo > 0) {
           const multiplier = Math.pow(2, Math.floor(s.combo / 5));
-          const formattedMult = formatScore(multiplier, settings.scoreDisplayMode); // Format multiplier using settings
+          const formattedMult = formatScore(multiplier, settings.scoreDisplayMode);
           const multText = multiplier > 1 ? ` (x${formattedMult})` : '';
           if (uiRefs.combo.current.style.display !== 'block') uiRefs.combo.current.style.display = 'block';
           uiRefs.combo.current.textContent = `${s.combo} Hits${multText}`;
