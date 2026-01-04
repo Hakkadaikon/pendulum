@@ -190,18 +190,18 @@ const Background3D: React.FC<Background3DProps> = ({ stretch, userAvatar }) => {
     <div className="fixed inset-0 z-0 overflow-hidden bg-black">
       <div ref={mountRef} className="absolute inset-0 z-0 pointer-events-none" />
 
-      {/* User Avatar Overlay (Keep it subtle) */}
+      {/* User Avatar Overlay (Sharp but subtle watermark) */}
       {userAvatar && (
         <div 
-          className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none opacity-10 overflow-hidden"
-          style={{ mixBlendMode: 'screen' }}
+          className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none overflow-hidden"
         >
            <div 
-            className="w-64 h-64 md:w-[500px] md:h-[500px] rounded-full overflow-hidden filter blur-xl"
+            className="w-72 h-72 md:w-[450px] md:h-[450px] rounded-full overflow-hidden border border-white/5 opacity-30 brightness-50 contrast-110 saturate-[0.8]"
             style={{
               backgroundImage: `url(${userAvatar})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
+              mixBlendMode: 'luminosity'
             }}
           />
         </div>
