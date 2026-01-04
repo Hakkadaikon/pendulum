@@ -96,6 +96,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
     dangerBorder: useRef<HTMLDivElement>(null),
   };
 
+  const lastUIUpdate = useRef(0);
+
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
@@ -159,7 +161,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
   const handleTouchMove = (e: React.TouchEvent) => e.touches[0] && updateInputPos(e.touches[0].clientX, e.touches[0].clientY);
 
   const spawnParticles = (x: number, y: number, color: string, count: number, spread: number, sizeMult: number) => {
-    for (let i = 0; i < count; i++) {
+    const maxParticles = 400;
+    const currentCount = particlesRef.current.length;
+    const actualCount = Math.min(count, maxParticles - currentCount);
+    
+    for (let i = 0; i < actualCount; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = Math.random() * spread * 0.05;
       particlesRef.current.push({
@@ -194,7 +200,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
         onGameOver(stats.score); return;
       }
 
-      // Update Special Timers
       if (stats.whiteEffectTimer > 0) stats.whiteEffectTimer -= 1 / TICK_RATE;
       if (stats.blackEffectTimer > 0) stats.blackEffectTimer -= 1 / TICK_RATE;
 
@@ -207,7 +212,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       const dist = Math.sqrt(dx * dx + dy * dy);
       stats.stretch = isBroken.current ? 0 : dist / stats.rubberMaxLoad;
       
-      // Black Ball Effect: Invert Gravity
       const currentGravity = stats.blackEffectTimer > 0 ? -settings.gravity : settings.gravity;
       
       let ax = 0, ay = stats.ballMass * currentGravity;
@@ -222,7 +226,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       targetRotation.current += 0.04;
       ballPos.current.x += ballVel.current.x; ballPos.current.y += ballVel.current.y;
 
-      // Ball Wall Collisions
       if (ballPos.current.x - stats.ballRadius < activeMinX) { ballPos.current.x = activeMinX + stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       else if (ballPos.current.x + stats.ballRadius > activeMaxX) { ballPos.current.x = activeMaxX - stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       if (ballPos.current.y - stats.ballRadius < 0) { ballPos.current.y = stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
@@ -233,13 +236,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
         if (stats.comboTimer <= 0) { stats.combo = 0; stats.comboTimer = 0; stats.perfectStreak = 0; }
       }
 
-      // Update Targets Physics
       targetsRef.current.forEach((t, index) => {
-        // White Ball Effect: Apply velocity to targets
         if (t.vel) {
           t.pos.x += t.vel.x;
           t.pos.y += t.vel.y;
-          // Target Wall Collisions
           if (t.pos.x - t.radius < 0 || t.pos.x + t.radius > dimensions.width) { t.vel.x *= -1; }
           if (t.pos.y - t.radius < 0 || t.pos.y + t.radius > dimensions.height) { t.vel.y *= -1; }
         }
@@ -279,10 +279,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
 
       let pCount = 20, pSpread = 50, pSize = 1;
       if (!isBroken.current) {
-        if (s >= 0.9) { grade = 'PERFECT'; stats.perfectStreak += 1; baseScore = 1000; pCount = 300; pSpread = 300; pSize = 2.5; }
-        else if (s >= 0.7) { grade = 'GREAT'; baseScore = 500; pCount = 150; pSpread = 180; pSize = 1.8; }
-        else if (s >= 0.4) { grade = 'GOOD'; baseScore = 200; pCount = 80; pSpread = 120; pSize = 1.2; }
-        else if (s > 0.05) { grade = 'OK'; baseScore = 100; pCount = 40; pSpread = 80; pSize = 0.8; }
+        if (s >= 0.9) { grade = 'PERFECT'; stats.perfectStreak += 1; baseScore = 1000; pCount = 200; pSpread = 200; pSize = 2.0; }
+        else if (s >= 0.7) { grade = 'GREAT'; baseScore = 500; pCount = 100; pSpread = 150; pSize = 1.5; }
+        else if (s >= 0.4) { grade = 'GOOD'; baseScore = 200; pCount = 50; pSpread = 100; pSize = 1.0; }
+        else if (s > 0.05) { grade = 'OK'; baseScore = 100; pCount = 20; pSpread = 60; pSize = 0.6; }
       } else { grade = 'OK'; baseScore = 100; }
 
       const color = TARGET_COLORS[t.type];
@@ -297,47 +297,29 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
 
       if (!isBroken.current) {
         const canRecoverTime = stats.timeLeft > 10;
-        
-        if (t.type === TargetType.YELLOW) {
-          if (canRecoverTime) stats.timeLeft += 1.0;
-        } else if (t.type === TargetType.GREEN) {
-          stats.rubberMaxLoad = Math.min(400, stats.rubberMaxLoad + 15);
-          if (canRecoverTime) stats.timeLeft += 2.0;
-        } else if (t.type === TargetType.RED) {
-          stats.ballMass += 0.2;
-          stats.ballRadius += 2;
-          if (canRecoverTime) stats.timeLeft += 3.0;
-        } else if (t.type === TargetType.WHITE) {
-          // Trigger Kinetic Chaos
+        if (t.type === TargetType.YELLOW) { if (canRecoverTime) stats.timeLeft += 1.0; } 
+        else if (t.type === TargetType.GREEN) { stats.rubberMaxLoad = Math.min(400, stats.rubberMaxLoad + 15); if (canRecoverTime) stats.timeLeft += 2.0; } 
+        else if (t.type === TargetType.RED) { stats.ballMass += 0.2; stats.ballRadius += 2; if (canRecoverTime) stats.timeLeft += 3.0; } 
+        else if (t.type === TargetType.WHITE) {
           stats.whiteEffectTimer = SPECIAL_EFFECT_DURATION;
-          targetsRef.current.forEach(target => {
-            if (!target.vel) {
-              target.vel = { x: (Math.random() - 0.5) * 6, y: (Math.random() - 0.5) * 6 };
-            }
-          });
-        } else if (t.type === TargetType.BLACK) {
-          // Trigger Gravity Inversion
-          stats.blackEffectTimer = SPECIAL_EFFECT_DURATION;
-        }
+          targetsRef.current.forEach(target => { if (!target.vel) target.vel = { x: (Math.random() - 0.5) * 6, y: (Math.random() - 0.5) * 6 }; });
+        } 
+        else if (t.type === TargetType.BLACK) { stats.blackEffectTimer = SPECIAL_EFFECT_DURATION; }
       }
       
       targetsRef.current.splice(index, 1);
-      
-      // Spawning logic with special targets
       const roll = Math.random();
-      if (stats.combo >= 10 && Math.random() < 0.15) {
-        // Spawn special
-        spawnTarget(Math.random() > 0.5 ? TargetType.WHITE : TargetType.BLACK);
-      } else {
-        spawnTarget(roll > 0.92 ? TargetType.RED : roll > 0.8 ? TargetType.GREEN : TargetType.YELLOW);
-      }
+      if (stats.combo >= 10 && Math.random() < 0.15) { spawnTarget(Math.random() > 0.5 ? TargetType.WHITE : TargetType.BLACK); } 
+      else { spawnTarget(roll > 0.92 ? TargetType.RED : roll > 0.8 ? TargetType.GREEN : TargetType.YELLOW); }
     };
 
     const draw = (alpha: number) => {
-      const ctx = canvasRef.current?.getContext('2d');
-      if (!ctx) return;
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (!ctx || !canvas) return;
       const w = dimensions.width, h = dimensions.height;
-      ctx.globalCompositeOperation = 'source-over';
+      
+      // Use clearRect to allow the 3D background to show through
       ctx.clearRect(0, 0, w, h);
 
       if (!hasMoved.current) {
@@ -358,11 +340,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       const color = isBroken.current ? '#ef4444' : s.stretch > 1 ? '#ef4444' : s.stretch > 0.9 ? '#facc15' : '#3b82f6';
       
       ctx.globalCompositeOperation = 'lighter';
-      particlesRef.current.forEach(p => {
+      for (const p of particlesRef.current) {
         ctx.globalAlpha = p.life;
         ctx.fillStyle = p.color;
         ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
-      });
+      }
       ctx.globalAlpha = 1.0;
       ctx.globalCompositeOperation = 'source-over';
 
@@ -377,9 +359,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.stroke();
       
-      ctx.shadowBlur = 2;
-      ctx.shadowColor = color;
       ctx.fillStyle = color;
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1.0;
       ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
 
@@ -387,78 +370,63 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       ctx.translate(drawBall.x, drawBall.y);
       ctx.rotate(ballRotation.current);
       
-      // Flat matte appearance for the ball
+      if (s.stretch > 0.9 || isBroken.current) {
+        ctx.globalAlpha = 0.2;
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(0, 0, s.ballRadius + 4, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1.0;
+      }
+
       const mainBallGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, s.ballRadius);
       mainBallGrad.addColorStop(0, color);
       mainBallGrad.addColorStop(1, 'rgba(0, 0, 0, 0.4)'); 
       
-      if (s.stretch > 0.9 || isBroken.current) {
-        ctx.shadowBlur = 3;
-        ctx.shadowColor = color;
-      }
-      
       ctx.fillStyle = mainBallGrad;
       ctx.beginPath(); ctx.arc(0, 0, s.ballRadius, 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0;
 
-      // SHARP INTERNAL PATTERNS
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)'; // Increased opacity for sharpness
+      // Sharp patterns
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
       ctx.lineWidth = 1.5;
-      
-      // Concentric internal ring
-      ctx.beginPath();
-      ctx.arc(0, 0, s.ballRadius * 0.5, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Sharp crosshair markings
+      ctx.beginPath(); ctx.arc(0, 0, s.ballRadius * 0.5, 0, Math.PI * 2); ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(-s.ballRadius * 0.8, 0); ctx.lineTo(-s.ballRadius * 0.2, 0);
       ctx.moveTo(s.ballRadius * 0.2, 0); ctx.lineTo(s.ballRadius * 0.8, 0);
       ctx.moveTo(0, -s.ballRadius * 0.8); ctx.lineTo(0, -s.ballRadius * 0.2);
       ctx.moveTo(0, s.ballRadius * 0.2); ctx.lineTo(0, s.ballRadius * 0.8);
       ctx.stroke();
-
-      // Center dot
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.beginPath(); ctx.arc(0, 0, 1.5, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
 
-      targetsRef.current.forEach(t => {
+      for (const t of targetsRef.current) {
         const tColor = TARGET_COLORS[t.type];
         ctx.save();
         ctx.translate(t.pos.x, t.pos.y);
         ctx.rotate(targetRotation.current);
 
-        // Flat matte appearance for targets
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle = tColor;
+        ctx.beginPath(); ctx.arc(0, 0, t.radius + 3, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1.0;
+
         const targetGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, t.radius);
         targetGrad.addColorStop(0, tColor);
         targetGrad.addColorStop(1, 'rgba(0, 0, 0, 0.5)');
 
-        ctx.shadowBlur = 2; ctx.shadowColor = tColor;
         ctx.fillStyle = targetGrad;
         ctx.beginPath(); ctx.arc(0, 0, t.radius, 0, Math.PI * 2); ctx.fill();
-        ctx.shadowBlur = 0;
 
-        // SHARP TARGET PATTERN
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
         ctx.lineWidth = 1;
-        
-        // Dynamic tech-rings
-        ctx.beginPath();
-        ctx.ellipse(0, 0, t.radius * 0.8, t.radius * 0.2, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.ellipse(0, 0, t.radius * 0.2, t.radius * 0.8, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Inner core point
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.beginPath(); ctx.arc(0, 0, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(0, 0, t.radius * 0.8, t.radius * 0.2, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(0, 0, t.radius * 0.2, t.radius * 0.8, 0, 0, Math.PI * 2); ctx.stroke();
         ctx.restore();
-      });
+      }
 
-      if (performance.now() - lastStatsSync > 50) { setCurrentStretch(s.stretch); lastStatsSync = performance.now(); }
-      updateUI();
+      const now = performance.now();
+      if (now - lastStatsSync > 60) { 
+        setCurrentStretch(s.stretch); 
+        updateUI();
+        lastStatsSync = now; 
+      }
     };
 
     const updateUI = () => {
@@ -470,48 +438,46 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
         if (s.combo > 0) {
           const multiplier = Math.pow(2, Math.floor(s.combo / 5));
           const multText = multiplier > 1 ? ` (x${multiplier})` : '';
-          uiRefs.combo.current.style.display = 'block';
+          if (uiRefs.combo.current.style.display !== 'block') uiRefs.combo.current.style.display = 'block';
           uiRefs.combo.current.textContent = `${s.combo} Hits${multText}`;
-          uiRefs.comboTimerContainer.current.style.display = 'block';
+          if (uiRefs.comboTimerContainer.current.style.display !== 'block') uiRefs.comboTimerContainer.current.style.display = 'block';
           const progress = Math.max(0, (s.comboTimer / COMBO_TIME_LIMIT) * 100);
           uiRefs.comboTimerBar.current.style.width = `${progress}%`;
         } else {
-          uiRefs.combo.current.style.display = 'none';
-          uiRefs.comboTimerContainer.current.style.display = 'none';
+          if (uiRefs.combo.current.style.display !== 'none') uiRefs.combo.current.style.display = 'none';
+          if (uiRefs.comboTimerContainer.current.style.display !== 'none') uiRefs.comboTimerContainer.current.style.display = 'none';
         }
       }
 
-      // Special Timers UI
       if (uiRefs.whiteTimerContainer.current && uiRefs.whiteTimerBar.current) {
         if (s.whiteEffectTimer > 0) {
-          uiRefs.whiteTimerContainer.current.style.display = 'block';
+          if (uiRefs.whiteTimerContainer.current.style.display !== 'block') uiRefs.whiteTimerContainer.current.style.display = 'block';
           uiRefs.whiteTimerBar.current.style.width = `${(s.whiteEffectTimer / SPECIAL_EFFECT_DURATION) * 100}%`;
         } else {
-          uiRefs.whiteTimerContainer.current.style.display = 'none';
+          if (uiRefs.whiteTimerContainer.current.style.display !== 'none') uiRefs.whiteTimerContainer.current.style.display = 'none';
         }
       }
       if (uiRefs.blackTimerContainer.current && uiRefs.blackTimerBar.current) {
         if (s.blackEffectTimer > 0) {
-          uiRefs.blackTimerContainer.current.style.display = 'block';
+          if (uiRefs.blackTimerContainer.current.style.display !== 'block') uiRefs.blackTimerContainer.current.style.display = 'block';
           uiRefs.blackTimerBar.current.style.width = `${(s.blackEffectTimer / SPECIAL_EFFECT_DURATION) * 100}%`;
         } else {
-          uiRefs.blackTimerContainer.current.style.display = 'none';
+          if (uiRefs.blackTimerContainer.current.style.display !== 'none') uiRefs.blackTimerContainer.current.style.display = 'none';
         }
       }
 
       if (uiRefs.perfect.current) {
         if (s.perfectStreak > 0) {
-          uiRefs.perfect.current.style.display = 'block';
+          if (uiRefs.perfect.current.style.display !== 'block') uiRefs.perfect.current.style.display = 'block';
           uiRefs.perfect.current.textContent = `Perfect x${s.perfectStreak}`;
         } else {
-          uiRefs.perfect.current.style.display = 'none';
+          if (uiRefs.perfect.current.style.display !== 'none') uiRefs.perfect.current.style.display = 'none';
         }
       }
 
       if (uiRefs.gauge.current) {
         const stretchPercent = Math.min(100, s.stretch * 100);
         uiRefs.gauge.current.style.width = isBroken.current ? '0%' : `${stretchPercent}%`;
-        uiRefs.gauge.current.className = `h-full transition-all duration-75 ${s.stretch > 1 ? 'bg-red-500 animate-pulse' : s.stretch >= 0.9 ? 'bg-yellow-400' : 'bg-blue-500'}`;
       }
       if (uiRefs.tensionValue.current) uiRefs.tensionValue.current.textContent = isBroken.current ? 'SNAPPED' : `${Math.round(s.stretch * 100)}%`;
     };

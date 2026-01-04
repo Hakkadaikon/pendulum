@@ -34,9 +34,11 @@ const Background3D: React.FC<Background3DProps> = ({ stretch, userAvatar }) => {
     const camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 0, 10);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // Optimization: disable antialias for background, it's fuzzy anyway
+    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Optimization: Cap pixel ratio to 1.5 for performance on high-DPI screens
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setClearColor(0x000000, 0); 
     mountRef.current.appendChild(renderer.domElement);
 
