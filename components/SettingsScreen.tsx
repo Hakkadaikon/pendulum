@@ -10,6 +10,8 @@ interface SettingsScreenProps {
   onBack: () => void;
 }
 
+const ALLOWED_MULTIPLIERS = [0.25, 0.5, 1, 2, 4];
+
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ settings, onUpdate, onBack }) => {
   const handleReset = () => {
     onUpdate({ ...DEFAULT_SETTINGS });
@@ -23,34 +25,45 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ settings, onUpdate, onB
     label, 
     value, 
     defaultValue, 
-    onChange, 
-    minMult = 0.25, 
-    maxMult = 4 
+    onChange
   }: { 
     label: string, 
     value: number, 
     defaultValue: number, 
-    onChange: (val: number) => void,
-    minMult?: number,
-    maxMult?: number
+    onChange: (val: number) => void
   }) => {
     const currentMult = value / defaultValue;
+    
+    // Find the closest index in ALLOWED_MULTIPLIERS
+    const currentIndex = ALLOWED_MULTIPLIERS.reduce((prev, curr, idx) => {
+      return Math.abs(curr - currentMult) < Math.abs(ALLOWED_MULTIPLIERS[prev] - currentMult) ? idx : prev;
+    }, 0);
     
     return (
       <div className="space-y-2">
         <div className="flex justify-between items-end">
           <label className="text-zinc-400 text-xs font-bold uppercase tracking-widest">{label}</label>
-          <span className="text-blue-400 font-mono text-sm">x{currentMult.toFixed(2)}</span>
+          <span className="text-blue-400 font-mono text-sm">x{ALLOWED_MULTIPLIERS[currentIndex].toFixed(2)}</span>
         </div>
         <input 
           type="range" 
-          min={minMult} 
-          max={maxMult} 
-          step="0.01" 
-          value={currentMult} 
-          onChange={(e) => onChange(parseFloat(e.target.value) * defaultValue)}
+          min="0" 
+          max={ALLOWED_MULTIPLIERS.length - 1} 
+          step="1" 
+          value={currentIndex} 
+          onChange={(e) => {
+            const index = parseInt(e.target.value);
+            onChange(ALLOWED_MULTIPLIERS[index] * defaultValue);
+          }}
           className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
         />
+        <div className="flex justify-between px-1 text-[8px] text-zinc-600 font-bold">
+          <span>1/4</span>
+          <span>1/2</span>
+          <span>1</span>
+          <span>2</span>
+          <span>4</span>
+        </div>
       </div>
     );
   };
@@ -146,7 +159,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ settings, onUpdate, onB
           value={settings.collisionDamp} 
           defaultValue={DEFAULT_SETTINGS.collisionDamp}
           onChange={(v) => updateValue('collisionDamp', v)}
-          maxMult={1.4}
         />
       </div>
 
