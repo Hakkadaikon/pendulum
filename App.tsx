@@ -243,10 +243,10 @@ const App: React.FC = () => {
       <div 
         className={`relative flex items-center justify-center ${gameState === GameState.PLAYING ? 'shadow-2xl' : ''}`}
         style={{
-          minWidth: '400px',
-          minHeight: '600px',
-          width: gameState === GameState.PLAYING ? 'clamp(400px, calc(95dvh * 9 / 16), 100vw)' : '400px',
-          height: gameState === GameState.PLAYING ? 'clamp(600px, 95dvh, 100vh)' : '600px',
+          minWidth: '350px',
+          minHeight: '550px',
+          width: gameState === GameState.PLAYING ? 'clamp(350px, calc(95dvh * 9 / 16), 100vw)' : '350px',
+          height: gameState === GameState.PLAYING ? 'clamp(550px, 95dvh, 100vh)' : '550px',
           aspectRatio: gameState === GameState.PLAYING ? '9 / 16' : 'unset',
         }}
       >
@@ -271,7 +271,7 @@ const App: React.FC = () => {
         )}
         
         {gameState === GameState.PLAYING && (
-          <div className="w-full h-full relative overflow-hidden bg-black shadow-2xl border-x border-white/5" style={{ minWidth: '400px', minHeight: '600px' }}>
+          <div className="w-full h-full relative overflow-hidden bg-black shadow-2xl border-x border-white/5" style={{ minWidth: '350px', minHeight: '550px' }}>
             <GameCanvas settings={settings} onGameOver={endGame} userAvatar={nostrUser?.picture} />
           </div>
         )}
