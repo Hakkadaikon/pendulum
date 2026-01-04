@@ -19,8 +19,8 @@ const Background3D: React.FC<Background3DProps> = ({ stretch, userAvatar }) => {
       cssGridRef.current.style.setProperty('--scroll-speed', `${2 / constantSpeed}s`);
       
       const hue = stretch > 0.9 ? 0 : 215;
-      const intensity = 0.3 + stretch * 0.7;
-      cssGridRef.current.style.setProperty('--grid-color', `hsla(${hue}, 80%, 60%, ${0.4 * intensity})`);
+      const intensity = 0.3 + stretch * 0.7; 
+      cssGridRef.current.style.setProperty('--grid-color', `hsla(${hue}, 80%, 60%, ${0.4 * intensity})`); 
     }
   }, [stretch]);
 
@@ -29,7 +29,7 @@ const Background3D: React.FC<Background3DProps> = ({ stretch, userAvatar }) => {
 
     const scene = new THREE.Scene();
     scene.background = null; 
-    scene.fog = new THREE.FogExp2(0x010103, 0.04);
+    scene.fog = new THREE.FogExp2(0x010103, 0.04); 
 
     const camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 0, 10);
@@ -48,9 +48,9 @@ const Background3D: React.FC<Background3DProps> = ({ stretch, userAvatar }) => {
       uniforms: {
         time: { value: 0 },
         stretch: { value: 0 },
-        baseColor: { value: new THREE.Color(0x0a1535) },
-        pulseColor: { value: new THREE.Color(0x3b82f6) },
-        dangerColor: { value: new THREE.Color(0xff2222) }
+        baseColor: { value: new THREE.Color(0x0a1535) }, 
+        pulseColor: { value: new THREE.Color(0x3b82f6) }, 
+        dangerColor: { value: new THREE.Color(0xff2222) } 
       },
       vertexShader: `
         varying vec2 vUv;
@@ -70,13 +70,13 @@ const Background3D: React.FC<Background3DProps> = ({ stretch, userAvatar }) => {
         void main() {
           float constantSpeed = 1.5;
           float yPos = fract(vUv.y * 5.0 + time * constantSpeed);
-          float pulse = pow(1.0 - abs(yPos - 0.5) * 2.0, 16.0);
+          float pulse = pow(1.0 - abs(yPos - 0.5) * 2.0, 16.0); 
           float grid = step(0.98, fract(vUv.y * 40.0 + time * constantSpeed * 2.0));
           vec3 color = mix(baseColor, dangerColor, clamp(stretch - 0.8, 0.0, 1.0) * 1.5);
           vec3 finalPulseColor = mix(pulseColor, dangerColor, clamp(stretch - 0.8, 0.0, 1.0));
-          vec3 finalColor = color + (finalPulseColor * pulse * 2.0) + (finalPulseColor * grid * 0.5);
+          vec3 finalColor = color + (finalPulseColor * pulse * 2.0) + (finalPulseColor * grid * 0.5); 
           float edge = smoothstep(0.0, 0.2, vUv.x) * smoothstep(1.0, 0.8, vUv.x);
-          gl_FragColor = vec4(finalColor * edge, 0.4); // More transparent to see icon through back wall
+          gl_FragColor = vec4(finalColor * edge, 0.4); 
         }
       `,
       side: THREE.DoubleSide,
@@ -97,7 +97,7 @@ const Background3D: React.FC<Background3DProps> = ({ stretch, userAvatar }) => {
     backWall.position.z = -30;
     tunnelGroup.add(backWall);
 
-    const light = new THREE.PointLight(0x3b82f6, 100, 100);
+    const light = new THREE.PointLight(0x3b82f6, 40, 100); 
     light.position.set(0, 5, 5);
     scene.add(light);
 
@@ -108,7 +108,7 @@ const Background3D: React.FC<Background3DProps> = ({ stretch, userAvatar }) => {
       wallMat.uniforms.time.value += 0.005;
       wallMat.uniforms.stretch.value = s;
       
-      light.intensity = 50 + s * 200;
+      light.intensity = 15 + s * 60; 
       light.color.setHex(s > 0.9 ? 0xff4444 : 0x3b82f6);
       
       if (s > 0.9) {

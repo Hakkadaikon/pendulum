@@ -367,37 +367,33 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       ctx.globalCompositeOperation = 'source-over';
 
       if (!isBroken.current) {
-        ctx.lineWidth = 2 + (s.stretch * 2); ctx.strokeStyle = color;
+        ctx.lineWidth = 1 + (s.stretch * 1.5); ctx.strokeStyle = color;
         ctx.beginPath(); ctx.moveTo(drawAnchor.x, drawAnchor.y); ctx.lineTo(drawBall.x, drawBall.y); ctx.stroke();
       }
 
       ctx.save();
       ctx.translate(drawAnchor.x, drawAnchor.y);
-      ctx.strokeStyle = '#f8fafc';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.stroke();
       
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 2;
       ctx.shadowColor = color;
       ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
-      
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.arc(0, 0, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
 
       ctx.save();
       ctx.translate(drawBall.x, drawBall.y);
       ctx.rotate(ballRotation.current);
       
-      const mainBallGrad = ctx.createRadialGradient(-s.ballRadius * 0.3, -s.ballRadius * 0.3, s.ballRadius * 0.1, 0, 0, s.ballRadius);
-      mainBallGrad.addColorStop(0, '#ffffff');
-      mainBallGrad.addColorStop(0.3, color);
-      mainBallGrad.addColorStop(1, '#000000');
+      // Flat matte appearance for the ball
+      const mainBallGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, s.ballRadius);
+      mainBallGrad.addColorStop(0, color);
+      mainBallGrad.addColorStop(1, 'rgba(0, 0, 0, 0.4)'); 
       
       if (s.stretch > 0.9 || isBroken.current) {
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 3;
         ctx.shadowColor = color;
       }
       
@@ -405,12 +401,26 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       ctx.beginPath(); ctx.arc(0, 0, s.ballRadius, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
 
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.lineWidth = 1;
+      // SHARP INTERNAL PATTERNS
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)'; // Increased opacity for sharpness
+      ctx.lineWidth = 1.5;
+      
+      // Concentric internal ring
       ctx.beginPath();
-      ctx.moveTo(-s.ballRadius * 0.8, 0); ctx.lineTo(s.ballRadius * 0.8, 0);
-      ctx.moveTo(0, -s.ballRadius * 0.8); ctx.lineTo(0, s.ballRadius * 0.8);
+      ctx.arc(0, 0, s.ballRadius * 0.5, 0, Math.PI * 2);
       ctx.stroke();
+
+      // Sharp crosshair markings
+      ctx.beginPath();
+      ctx.moveTo(-s.ballRadius * 0.8, 0); ctx.lineTo(-s.ballRadius * 0.2, 0);
+      ctx.moveTo(s.ballRadius * 0.2, 0); ctx.lineTo(s.ballRadius * 0.8, 0);
+      ctx.moveTo(0, -s.ballRadius * 0.8); ctx.lineTo(0, -s.ballRadius * 0.2);
+      ctx.moveTo(0, s.ballRadius * 0.2); ctx.lineTo(0, s.ballRadius * 0.8);
+      ctx.stroke();
+
+      // Center dot
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.beginPath(); ctx.arc(0, 0, 1.5, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
 
       targetsRef.current.forEach(t => {
@@ -419,24 +429,31 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
         ctx.translate(t.pos.x, t.pos.y);
         ctx.rotate(targetRotation.current);
 
-        const targetGrad = ctx.createRadialGradient(-t.radius * 0.3, -t.radius * 0.3, t.radius * 0.1, 0, 0, t.radius);
-        targetGrad.addColorStop(0, '#ffffff');
-        targetGrad.addColorStop(0.3, tColor);
-        targetGrad.addColorStop(1, '#000000');
+        // Flat matte appearance for targets
+        const targetGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, t.radius);
+        targetGrad.addColorStop(0, tColor);
+        targetGrad.addColorStop(1, 'rgba(0, 0, 0, 0.5)');
 
-        ctx.shadowBlur = 15; ctx.shadowColor = tColor;
+        ctx.shadowBlur = 2; ctx.shadowColor = tColor;
         ctx.fillStyle = targetGrad;
         ctx.beginPath(); ctx.arc(0, 0, t.radius, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
 
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        // SHARP TARGET PATTERN
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
         ctx.lineWidth = 1;
+        
+        // Dynamic tech-rings
         ctx.beginPath();
         ctx.ellipse(0, 0, t.radius * 0.8, t.radius * 0.2, 0, 0, Math.PI * 2);
         ctx.stroke();
         ctx.beginPath();
         ctx.ellipse(0, 0, t.radius * 0.2, t.radius * 0.8, 0, 0, Math.PI * 2);
         ctx.stroke();
+        
+        // Inner core point
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.beginPath(); ctx.arc(0, 0, 2, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       });
 
