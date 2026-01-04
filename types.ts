@@ -37,6 +37,7 @@ export interface GameSettings {
   collisionDamp: number;
   isExperimental: boolean;
   scoreDisplayMode: ScoreDisplayMode;
+  isDebugMode: boolean; // Added
 }
 
 export interface GameStats {
@@ -75,4 +76,6 @@ export interface LeaderboardEntry {
   score: number;
   bestCombo: number;
   timestamp: number;
+  rawKind0?: any;     // Added for Debug Mode
+  rawKind30078?: any; // Added for Debug Mode
 }

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ChevronLeft, RotateCcw, Hash, Binary } from 'lucide-react';
+import { ChevronLeft, RotateCcw, Hash, Binary, Bug, CheckSquare, Square } from 'lucide-react';
 import { GameSettings, ScoreDisplayMode } from '../types';
 import { DEFAULT_SETTINGS } from '../constants';
 
@@ -102,6 +102,22 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ settings, onUpdate, onB
               <span>指数 (Scientific)</span>
             </button>
           </div>
+        </div>
+
+        {/* Debug Mode Toggle */}
+        <div className="flex items-center justify-between p-4 bg-zinc-950 rounded-xl border border-zinc-800 cursor-pointer group" onClick={() => updateValue('isDebugMode', !settings.isDebugMode)}>
+          <div className="flex items-center space-x-3">
+            <Bug className={`w-5 h-5 transition-colors ${settings.isDebugMode ? 'text-red-500' : 'text-zinc-500'}`} />
+            <div>
+              <div className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">DEBUG MODE</div>
+              <div className="text-[10px] text-zinc-500 font-medium">Show raw Nostr events on hover</div>
+            </div>
+          </div>
+          {settings.isDebugMode ? (
+            <CheckSquare className="text-blue-500" size={20} />
+          ) : (
+            <Square className="text-zinc-700" size={20} />
+          )}
         </div>
 
         <SliderGroup 

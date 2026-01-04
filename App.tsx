@@ -181,7 +181,8 @@ const App: React.FC = () => {
                   pubkey: ev.pubkey,
                   score: scoreVal,
                   bestCombo: content.bestCombo || 0,
-                  timestamp: ev.created_at
+                  timestamp: ev.created_at,
+                  rawKind30078: ev // Store raw event for Debug Mode
                 });
               }
             } catch(e) {}
@@ -200,7 +201,7 @@ const App: React.FC = () => {
     }
 
     const pubkeysToFetch = sorted.map(s => s.pubkey);
-    const metadataMap: Map<string, {name?: string, picture?: string}> = new Map();
+    const metadataMap: Map<string, {name?: string, picture?: string, raw?: any}> = new Map();
 
     await Promise.all(relayUrls.map(url => {
       return new Promise<void>((resolve) => {
@@ -213,7 +214,7 @@ const App: React.FC = () => {
             const ev = msg[2];
             try {
               const content = JSON.parse(ev.content);
-              metadataMap.set(ev.pubkey, { name: content.name, picture: content.picture });
+              metadataMap.set(ev.pubkey, { name: content.name, picture: content.picture, raw: ev });
             } catch(e) {}
           }
           if (msg[0] === "EOSE") { ws.close(); resolve(); }
@@ -223,10 +224,15 @@ const App: React.FC = () => {
       });
     }));
 
-    const finalEntries = sorted.map(entry => ({
-      ...entry,
-      ...metadataMap.get(entry.pubkey)
-    }));
+    const finalEntries = sorted.map(entry => {
+      const meta = metadataMap.get(entry.pubkey);
+      return {
+        ...entry,
+        name: meta?.name,
+        picture: meta?.picture,
+        rawKind0: meta?.raw // Store raw kind0 event for Debug Mode
+      };
+    });
 
     setLeaderboard(finalEntries);
     setIsLoadingLeaderboard(false);
@@ -285,6 +291,7 @@ const App: React.FC = () => {
             entries={leaderboard} 
             isLoading={isLoadingLeaderboard}
             displayMode={settings.scoreDisplayMode}
+            isDebugMode={settings.isDebugMode}
             onClose={() => setIsLeaderboardOpen(false)} 
           />
         )}

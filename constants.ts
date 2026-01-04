@@ -11,7 +11,8 @@ export const DEFAULT_SETTINGS: GameSettings = {
   naturalLen: 0.25,
   collisionDamp: 0.7,
   isExperimental: false,
-  scoreDisplayMode: 'kanji'
+  scoreDisplayMode: 'kanji',
+  isDebugMode: false
 };
 
 export const INITIAL_TIME = 60;
