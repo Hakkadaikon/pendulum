@@ -271,7 +271,7 @@ const App: React.FC = () => {
         )}
         
         {gameState === GameState.PLAYING && (
-          <div className="w-full h-full relative overflow-hidden bg-black shadow-2xl border-x border-white/5" style={{ minWidth: '350px', minHeight: '550px' }}>
+          <div className="w-full h-full relative overflow-hidden bg-black shadow-2xl" style={{ minWidth: '350px', minHeight: '550px' }}>
             <GameCanvas settings={settings} onGameOver={endGame} userAvatar={nostrUser?.picture} />
           </div>
         )}

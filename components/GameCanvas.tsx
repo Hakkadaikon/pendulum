@@ -45,7 +45,6 @@ interface GameCanvasProps {
   userAvatar?: string;
 }
 
-// Play area margin to account for bottom HUD (Tension Gauge)
 const HUD_BOTTOM_MARGIN = 90; 
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvatar }) => {
@@ -124,7 +123,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
   const spawnTarget = useCallback((type: TargetType = TargetType.YELLOW) => {
     if (dimensions.width === 0) return;
     const margin = 50;
-    // Account for HUD_BOTTOM_MARGIN in Y position spawning (Play area is top 90%)
     const usableHeight = dimensions.height - HUD_BOTTOM_MARGIN - (margin * 2);
     const newTarget: Target = {
       id: Math.random().toString(36).substr(2, 9),
@@ -194,7 +192,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
     let animationFrameId: number;
     let lastTime = performance.now();
     let accumulator = 0;
-    let lastStatsSync = 0;
 
     const updatePhysics = () => {
       if (!hasMoved.current) return;
@@ -235,7 +232,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       targetRotation.current += 0.04;
       ballPos.current.x += ballVel.current.x; ballPos.current.y += ballVel.current.y;
 
-      // Ball boundaries adjusted for bottom HUD (Don't let ball go into the tension gauge area)
       if (ballPos.current.x - stats.ballRadius < activeMinX) { ballPos.current.x = activeMinX + stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       else if (ballPos.current.x + stats.ballRadius > activeMaxX) { ballPos.current.x = activeMaxX - stats.ballRadius; ballVel.current.x *= -settings.collisionDamp; }
       if (ballPos.current.y - stats.ballRadius < 0) { ballPos.current.y = stats.ballRadius; ballVel.current.y *= -settings.collisionDamp; }
@@ -255,7 +251,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
           t.pos.x += t.vel.x;
           t.pos.y += t.vel.y;
           if (t.pos.x - t.radius < 0 || t.pos.x + t.radius > dimensions.width) { t.vel.x *= -1; }
-          // Account for HUD margin in target movement
           if (t.pos.y - t.radius < 0 || t.pos.y + t.radius > dimensions.height - HUD_BOTTOM_MARGIN) { t.vel.y *= -1; }
         }
 
@@ -339,7 +334,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       ctx.clearRect(0, 0, w, h);
 
       if (!hasMoved.current) {
-        // Responsive message font calculation
         const message = 'MOVE TO INITIALIZE SYSTEM';
         const baseFontSize = 24;
         const responsiveFontSize = Math.min(baseFontSize, (w * 0.9) / (message.length * 0.55));
@@ -431,23 +425,19 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
           const chestGrad = ctx.createLinearGradient(0, -r, 0, r);
           chestGrad.addColorStop(0, '#fbbf24');
           chestGrad.addColorStop(1, '#92400e');
-
           ctx.fillStyle = chestGrad;
           ctx.beginPath();
           ctx.rect(-r * 1.2, -r * 0.8, r * 2.4, r * 1.6);
           ctx.fill();
-
           ctx.strokeStyle = '#451a03';
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.moveTo(-r * 1.2, -r * 0.1);
           ctx.lineTo(r * 1.2, -r * 0.1);
           ctx.stroke();
-
           ctx.fillStyle = '#451a03';
           ctx.fillRect(-r * 0.8, -r * 0.8, r * 0.3, r * 1.6);
           ctx.fillRect(r * 0.5, -r * 0.8, r * 0.3, r * 1.6);
-
           ctx.fillStyle = '#fff';
           ctx.beginPath();
           ctx.rect(-r * 0.2, -r * 0.25, r * 0.4, r * 0.5);
@@ -455,14 +445,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
           ctx.strokeStyle = '#000';
           ctx.lineWidth = 1;
           ctx.stroke();
-
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(-r * 1.0, -r * 0.6);
           ctx.lineTo(-r * 0.6, -r * 0.6);
           ctx.stroke();
-          
           ctx.globalAlpha = 0.2;
           ctx.shadowBlur = 15;
           ctx.shadowColor = '#fcd34d';
@@ -470,7 +458,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
           ctx.beginPath(); ctx.arc(0, 0, r * 1.5, 0, Math.PI * 2); ctx.fill();
           ctx.shadowBlur = 0;
           ctx.globalAlpha = 1.0;
-
         } else {
           ctx.globalAlpha = 0.15;
           ctx.fillStyle = tColor;
@@ -563,6 +550,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
         }
       }
       if (uiRefs.tensionValue.current) uiRefs.tensionValue.current.textContent = isBroken.current ? 'SNAPPED' : `${Math.round(s.stretch * 100)}%`;
+      
+      if (uiRefs.dangerBorder.current) {
+          uiRefs.dangerBorder.current.style.opacity = s.stretch > DANGER_THRESHOLD ? '1' : '0';
+      }
     };
 
     const loop = (time: number) => {

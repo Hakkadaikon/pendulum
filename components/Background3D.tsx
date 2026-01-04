@@ -9,113 +9,156 @@ interface Background3DProps {
 
 const Background3D: React.FC<Background3DProps> = ({ stretch, userAvatar }) => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const cssGridRef = useRef<HTMLDivElement>(null);
   const stretchRef = useRef(stretch);
 
   useEffect(() => {
     stretchRef.current = stretch;
-    if (cssGridRef.current) {
-      const constantSpeed = 1.5; 
-      cssGridRef.current.style.setProperty('--scroll-speed', `${2 / constantSpeed}s`);
-      
-      const hue = stretch > 0.9 ? 0 : 215;
-      const intensity = 0.3 + stretch * 0.7; 
-      cssGridRef.current.style.setProperty('--grid-color', `hsla(${hue}, 80%, 60%, ${0.4 * intensity})`); 
-    }
   }, [stretch]);
 
   useEffect(() => {
     if (!mountRef.current) return;
 
     const scene = new THREE.Scene();
-    scene.background = null; 
-    scene.fog = new THREE.FogExp2(0x010103, 0.04); 
+    // Earthy dark background and fog
+    const bgColor = 0x0c0805;
+    scene.background = new THREE.Color(bgColor);
+    scene.fog = new THREE.FogExp2(bgColor, 0.05);
 
-    const camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 0, 10);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 0, 15);
 
-    // Optimization: disable antialias for background, it's fuzzy anyway
-    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
+    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    // Optimization: Cap pixel ratio to 1.5 for performance on high-DPI screens
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.setClearColor(0x000000, 0); 
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.2));
     mountRef.current.appendChild(renderer.domElement);
 
-    const tunnelGroup = new THREE.Group();
-    scene.add(tunnelGroup);
-
-    const wallGeo = new THREE.PlaneGeometry(60, 200, 1, 10);
+    // Create a rugged wall material using shaders
+    const wallGeo = new THREE.PlaneGeometry(60, 60, 128, 128);
     const wallMat = new THREE.ShaderMaterial({
       uniforms: {
         time: { value: 0 },
         stretch: { value: 0 },
-        baseColor: { value: new THREE.Color(0x0a1535) }, 
-        pulseColor: { value: new THREE.Color(0x3b82f6) }, 
-        dangerColor: { value: new THREE.Color(0xff2222) } 
+        resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
       },
       vertexShader: `
         varying vec2 vUv;
+        varying float vElevation;
+        uniform float time;
+        uniform float stretch;
+
+        // Classic 2D Noise
+        vec2 fade(vec2 t) { return t*t*t*(t*(t*6.0-15.0)+10.0); }
+        vec4 permute(vec4 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+        float pnoise(vec2 P) {
+          vec4 Pi = floor(P.xyxy) + vec4(0.0, 0.0, 1.0, 1.0);
+          vec4 Pf = fract(P.xyxy) - vec4(0.0, 0.0, 1.0, 1.0);
+          Pi = mod(Pi, 289.0);
+          vec4 ix = Pi.xzxz;
+          vec4 iy = Pi.yyww;
+          vec4 fx = Pf.xzxz;
+          vec4 fy = Pf.yyww;
+          vec4 i = permute(permute(ix) + iy);
+          vec4 gx = 2.0 * fract(i * 0.0243902439) - 1.0;
+          vec4 gy = abs(gx) - 0.5;
+          vec4 tx = floor(gx + 0.5);
+          gx = gx - tx;
+          vec2 g00 = vec2(gx.x,gy.x);
+          vec2 g10 = vec2(gx.y,gy.y);
+          vec2 g01 = vec2(gx.z,gy.z);
+          vec2 g11 = vec2(gx.w,gy.w);
+          vec4 norm = 1.79284291400159 - 0.85373472095314 * vec4(dot(g00, g00), dot(g10, g10), dot(g01, g01), dot(g11, g11));
+          g00 *= norm.x; g10 *= norm.y; g01 *= norm.z; g11 *= norm.w;
+          float n00 = dot(g00, vec2(fx.x, fy.x));
+          float n10 = dot(g10, vec2(fx.y, fy.y));
+          float n01 = dot(g01, vec2(fx.z, fy.z));
+          float n11 = dot(g11, vec2(fx.w, fy.w));
+          vec2 fade_xy = fade(Pf.xy);
+          vec2 n_x = mix(vec2(n00, n01), vec2(n10, n11), fade_xy.x);
+          float n_xy = mix(n_x.x, n_x.y, fade_xy.y);
+          return 2.3 * n_xy;
+        }
+
         void main() {
           vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          
+          // Upward scrolling effect
+          float scrollSpeed = 0.4;
+          vec2 noiseUv = uv * 3.0 + vec2(0.0, -time * scrollSpeed);
+          
+          // Create layered rugged noise
+          float elevation = pnoise(noiseUv) * 1.5;
+          elevation += pnoise(noiseUv * 2.0) * 0.5;
+          elevation += pnoise(noiseUv * 4.0) * 0.2;
+          
+          vElevation = elevation;
+          
+          vec3 newPos = position;
+          newPos.z += elevation;
+          
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
         }
       `,
       fragmentShader: `
         varying vec2 vUv;
+        varying float vElevation;
         uniform float time;
         uniform float stretch;
-        uniform vec3 baseColor;
-        uniform vec3 pulseColor;
-        uniform vec3 dangerColor;
 
         void main() {
-          float constantSpeed = 1.5;
-          float yPos = fract(vUv.y * 5.0 + time * constantSpeed);
-          float pulse = pow(1.0 - abs(yPos - 0.5) * 2.0, 16.0); 
-          float grid = step(0.98, fract(vUv.y * 40.0 + time * constantSpeed * 2.0));
-          vec3 color = mix(baseColor, dangerColor, clamp(stretch - 0.8, 0.0, 1.0) * 1.5);
-          vec3 finalPulseColor = mix(pulseColor, dangerColor, clamp(stretch - 0.8, 0.0, 1.0));
-          vec3 finalColor = color + (finalPulseColor * pulse * 2.0) + (finalPulseColor * grid * 0.5); 
-          float edge = smoothstep(0.0, 0.2, vUv.x) * smoothstep(1.0, 0.8, vUv.x);
-          gl_FragColor = vec4(finalColor * edge, 0.4); 
+          // Normal mapping simulation via elevation gradients
+          float d = 0.01;
+          float slope = vElevation * 0.5;
+          
+          // Earthy Palette
+          vec3 baseColor = vec3(0.08, 0.06, 0.04); // Dark soil
+          vec3 rockColor = vec3(0.28, 0.22, 0.16); // Earthy rock/brown
+          
+          // Add highlights on peaks
+          float diffuse = clamp(vElevation, 0.0, 1.0);
+          vec3 color = mix(baseColor, rockColor, diffuse);
+          
+          // Constant warm glow in crevices (Independent of stretch for steady brightness)
+          vec3 glowColor = vec3(0.45, 0.25, 0.08); // Warm amber soil-glow
+          float creviceGlow = smoothstep(0.3, -0.8, vElevation);
+          
+          // Fixed intensity (0.5) to keep background brightness constant
+          color += glowColor * creviceGlow * 0.5;
+          
+          // Scannline/Grid effect overlay (warm tones)
+          float grid = step(0.98, fract(vUv.y * 50.0 - time * 0.5)) * 0.04;
+          color += glowColor * grid;
+
+          gl_FragColor = vec4(color, 1.0);
         }
       `,
-      side: THREE.DoubleSide,
-      transparent: true
+      side: THREE.DoubleSide
     });
 
-    const leftWall = new THREE.Mesh(wallGeo, wallMat);
-    leftWall.rotation.y = Math.PI / 2;
-    leftWall.position.x = -15;
-    tunnelGroup.add(leftWall);
+    const wall = new THREE.Mesh(wallGeo, wallMat);
+    wall.position.z = -5;
+    scene.add(wall);
 
-    const rightWall = new THREE.Mesh(wallGeo, wallMat);
-    rightWall.rotation.y = -Math.PI / 2;
-    rightWall.position.x = 15;
-    tunnelGroup.add(rightWall);
-
-    const backWall = new THREE.Mesh(wallGeo, wallMat);
-    backWall.position.z = -30;
-    tunnelGroup.add(backWall);
-
-    const light = new THREE.PointLight(0x3b82f6, 40, 100); 
-    light.position.set(0, 5, 5);
+    // Static warm light following the general center
+    const lightColor = 0xccaa88; // Warm earthy light
+    const light = new THREE.PointLight(lightColor, 150, 50); // Increased base intensity
+    light.position.set(0, 0, 10);
     scene.add(light);
 
     let frameId: number;
     const animate = () => {
       frameId = requestAnimationFrame(animate);
       const s = stretchRef.current;
-      wallMat.uniforms.time.value += 0.005;
+      
+      wallMat.uniforms.time.value += 0.01;
       wallMat.uniforms.stretch.value = s;
       
-      light.intensity = 15 + s * 60; 
-      light.color.setHex(s > 0.9 ? 0xff4444 : 0x3b82f6);
+      // Light intensity is now static as requested
+      // light.intensity = 150; // Already set at creation
       
-      if (s > 0.9) {
-        camera.position.x = (Math.random() - 0.5) * 0.05 * s;
-        camera.position.y = (Math.random() - 0.5) * 0.05 * s;
+      // Camera shake on high tension remains for game feel (not brightness)
+      if (s > 0.95) {
+        camera.position.x = (Math.random() - 0.5) * 0.1 * s;
+        camera.position.y = (Math.random() - 0.5) * 0.1 * s;
       } else {
         camera.position.x *= 0.9;
         camera.position.y *= 0.9;
@@ -130,6 +173,7 @@ const Background3D: React.FC<Background3DProps> = ({ stretch, userAvatar }) => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      wallMat.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
     };
     window.addEventListener('resize', handleResize);
 
@@ -143,77 +187,28 @@ const Background3D: React.FC<Background3DProps> = ({ stretch, userAvatar }) => {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-0 overflow-hidden bg-[#010103]">
-      {/* Layer 1: Three.js Tunnel - Bottom layer */}
-      <div ref={mountRef} className="absolute inset-0 z-0 opacity-100 pointer-events-none" />
+    <div className="fixed inset-0 z-0 overflow-hidden bg-black">
+      <div ref={mountRef} className="absolute inset-0 z-0 pointer-events-none" />
 
-      {/* Layer 2: Centered Nostr Avatar - Above 3D Tunnel, Below Grid */}
+      {/* User Avatar Overlay (Keep it subtle) */}
       {userAvatar && (
         <div 
-          className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none transition-all duration-1000 overflow-hidden"
-          style={{
-            opacity: 0.4,
-            filter: 'grayscale(0.3) brightness(0.6) contrast(1.1)' 
-          }}
+          className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none opacity-10 overflow-hidden"
+          style={{ mixBlendMode: 'screen' }}
         >
            <div 
-            className="w-48 h-48 md:w-96 md:h-96 rounded-full overflow-hidden border-2 border-blue-500/20 shadow-[0_0_80px_rgba(59,130,246,0.2)]"
+            className="w-64 h-64 md:w-[500px] md:h-[500px] rounded-full overflow-hidden filter blur-xl"
             style={{
               backgroundImage: `url(${userAvatar})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
             }}
           />
         </div>
       )}
 
-      {/* Layer 3: Effects, Grid, and Vignette - Top of background stack */}
-      <div className="absolute inset-0 z-20 pointer-events-none opacity-20">
-        <div 
-          className="absolute inset-0"
-          style={{
-            backgroundImage: 'linear-gradient(to bottom, transparent, rgba(59, 130, 246, 0.05) 50%, transparent)',
-            backgroundSize: '100% 200px',
-            animation: 'streak-scroll 0.8s linear infinite'
-          }}
-        />
-      </div>
-
-      <div 
-        className="absolute inset-0 z-20 pointer-events-none"
-        style={{
-          perspective: '1200px',
-          perspectiveOrigin: '50% 40%'
-        }}
-      >
-        <div 
-          ref={cssGridRef}
-          className="absolute inset-0 origin-center opacity-40"
-          style={{
-            transform: 'rotateX(60deg) translateY(-50%) scale(2.5)',
-            backgroundImage: `
-              linear-gradient(to bottom, var(--grid-color, rgba(59, 130, 246, 0.15)) 1px, transparent 1px),
-              linear-gradient(to right, var(--grid-color, rgba(59, 130, 246, 0.15)) 1px, transparent 1px)
-            `,
-            backgroundSize: '100px 100px',
-            animation: 'background-scroll var(--scroll-speed, 1.5s) linear infinite',
-          } as React.CSSProperties}
-        />
-      </div>
-
-      <div className="absolute inset-0 z-30 pointer-events-none shadow-[inset_0_0_300px_rgba(0,0,0,0.95)]" />
-
-      <style>{`
-        @keyframes background-scroll {
-          from { background-position: 0 0; }
-          to { background-position: 0 100px; }
-        }
-        @keyframes streak-scroll {
-          from { transform: translateY(-200px); }
-          to { transform: translateY(200px); }
-        }
-      `}</style>
+      {/* Vignette and Dark overlay */}
+      <div className="absolute inset-0 z-20 pointer-events-none shadow-[inset_0_0_200px_rgba(0,0,0,0.9)]" />
     </div>
   );
 };
