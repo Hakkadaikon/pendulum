@@ -19,13 +19,15 @@ export const DANGER_THRESHOLD = 1.0; // 100%
 export const BREAK_TIME_LIMIT = 0.25; // seconds
 export const COMBO_TIME_LIMIT = 5.0; // seconds
 export const SPECIAL_EFFECT_DURATION = 10.0; // seconds
+export const CHEST_EFFECT_DURATION = 5.0; // seconds
 
 export const TARGET_COLORS = {
   [TargetType.YELLOW]: '#fbbf24',
   [TargetType.GREEN]: '#34d399',
   [TargetType.RED]: '#f87171',
   [TargetType.WHITE]: '#ffffff',
-  [TargetType.BLACK]: '#111111'
+  [TargetType.BLACK]: '#111111',
+  [TargetType.CHEST]: '#fcd34d' // Gold
 };
 
 export const BALL_INITIAL_RADIUS = 10;

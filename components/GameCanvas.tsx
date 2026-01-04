@@ -12,6 +12,7 @@ import {
   TARGET_COLORS,
   COMBO_TIME_LIMIT,
   SPECIAL_EFFECT_DURATION,
+  CHEST_EFFECT_DURATION,
   formatScore
 } from '../constants';
 import { GameSettings, Vector2D, Target, TargetType, GameStats } from '../types';
@@ -71,7 +72,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
     score: 0, combo: 0, comboTimer: 0, perfectStreak: 0, timeLeft: INITIAL_TIME,
     rubberMaxLoad: RUBBER_INITIAL_MAX_LEN, ballMass: BALL_INITIAL_MASS,
     ballRadius: BALL_INITIAL_RADIUS, stretch: 0, dangerTime: 0,
-    whiteEffectTimer: 0, blackEffectTimer: 0
+    whiteEffectTimer: 0, blackEffectTimer: 0, chestEffectTimer: 0
   });
 
   const targetsRef = useRef<Target[]>([]);
@@ -86,8 +87,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
     comboTimerBar: useRef<HTMLDivElement>(null),
     whiteTimerBar: useRef<HTMLDivElement>(null),
     blackTimerBar: useRef<HTMLDivElement>(null),
+    chestTimerBar: useRef<HTMLDivElement>(null),
     whiteTimerContainer: useRef<HTMLDivElement>(null),
     blackTimerContainer: useRef<HTMLDivElement>(null),
+    chestTimerContainer: useRef<HTMLDivElement>(null),
     perfect: useRef<HTMLDivElement>(null),
     gauge: useRef<HTMLDivElement>(null),
     gaugeContainer: useRef<HTMLDivElement>(null),
@@ -125,7 +128,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
         x: margin + Math.random() * (dimensions.width - margin * 2),
         y: 100 + Math.random() * (dimensions.height - 200)
       },
-      radius: 15,
+      radius: type === TargetType.CHEST ? 20 : 15, // Chest is slightly larger
       vel: (type === TargetType.WHITE || statsRef.current.whiteEffectTimer > 0) ? {
         x: (Math.random() - 0.5) * 4,
         y: (Math.random() - 0.5) * 4
@@ -161,7 +164,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
   const handleTouchMove = (e: React.TouchEvent) => e.touches[0] && updateInputPos(e.touches[0].clientX, e.touches[0].clientY);
 
   const spawnParticles = (x: number, y: number, color: string, count: number, spread: number, sizeMult: number) => {
-    const maxParticles = 400;
+    const maxParticles = 500;
     const currentCount = particlesRef.current.length;
     const actualCount = Math.min(count, maxParticles - currentCount);
     
@@ -202,6 +205,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
 
       if (stats.whiteEffectTimer > 0) stats.whiteEffectTimer -= 1 / TICK_RATE;
       if (stats.blackEffectTimer > 0) stats.blackEffectTimer -= 1 / TICK_RATE;
+      if (stats.chestEffectTimer > 0) stats.chestEffectTimer -= 1 / TICK_RATE;
 
       prevAnchorPos.current = { ...anchorPos.current };
       prevBallPos.current = { ...ballPos.current };
@@ -237,6 +241,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       }
 
       targetsRef.current.forEach((t, index) => {
+        // Sparkle effect for chest
+        if (t.type === TargetType.CHEST && Math.random() < 0.1) {
+            spawnParticles(t.pos.x + (Math.random()-0.5)*20, t.pos.y + (Math.random()-0.5)*20, '#fcd34d', 1, 10, 0.4);
+        }
+
         if (t.vel) {
           t.pos.x += t.vel.x;
           t.pos.y += t.vel.y;
@@ -258,7 +267,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       }
 
       if (!isBroken.current) {
-        if (stats.stretch > DANGER_THRESHOLD) {
+        if (stats.stretch > DANGER_THRESHOLD && stats.chestEffectTimer <= 0) {
           stats.dangerTime += 1 / TICK_RATE;
           stats.rubberMaxLoad -= 0.02;
           if (stats.dangerTime > BREAK_TIME_LIMIT) { isBroken.current = true; breakTimeRef.current = performance.now(); }
@@ -305,11 +314,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
           targetsRef.current.forEach(target => { if (!target.vel) target.vel = { x: (Math.random() - 0.5) * 6, y: (Math.random() - 0.5) * 6 }; });
         } 
         else if (t.type === TargetType.BLACK) { stats.blackEffectTimer = SPECIAL_EFFECT_DURATION; }
+        else if (t.type === TargetType.CHEST) { stats.chestEffectTimer = CHEST_EFFECT_DURATION; if (canRecoverTime) stats.timeLeft += 5.0; }
       }
       
       targetsRef.current.splice(index, 1);
       const roll = Math.random();
-      if (stats.combo >= 10 && Math.random() < 0.15) { spawnTarget(Math.random() > 0.5 ? TargetType.WHITE : TargetType.BLACK); } 
+      if (roll < 0.03) { spawnTarget(TargetType.CHEST); }
+      else if (stats.combo >= 10 && Math.random() < 0.15) { spawnTarget(Math.random() > 0.5 ? TargetType.WHITE : TargetType.BLACK); } 
       else { spawnTarget(roll > 0.92 ? TargetType.RED : roll > 0.8 ? TargetType.GREEN : TargetType.YELLOW); }
     };
 
@@ -319,7 +330,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       if (!ctx || !canvas) return;
       const w = dimensions.width, h = dimensions.height;
       
-      // Use clearRect to allow the 3D background to show through
       ctx.clearRect(0, 0, w, h);
 
       if (!hasMoved.current) {
@@ -337,8 +347,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       };
 
       const s = statsRef.current;
-      const color = isBroken.current ? '#ef4444' : s.stretch > 1 ? '#ef4444' : s.stretch > 0.9 ? '#facc15' : '#3b82f6';
-      
+      let color = isBroken.current ? '#ef4444' : s.stretch > 1 ? '#ef4444' : s.stretch > 0.9 ? '#facc15' : '#3b82f6';
+      if (s.chestEffectTimer > 0) color = '#fcd34d';
+
       ctx.globalCompositeOperation = 'lighter';
       for (const p of particlesRef.current) {
         ctx.globalAlpha = p.life;
@@ -350,7 +361,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
 
       if (!isBroken.current) {
         ctx.lineWidth = 1 + (s.stretch * 1.5); ctx.strokeStyle = color;
+        if (s.chestEffectTimer > 0) {
+          ctx.lineWidth = 3;
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = '#fcd34d';
+        }
         ctx.beginPath(); ctx.moveTo(drawAnchor.x, drawAnchor.y); ctx.lineTo(drawBall.x, drawBall.y); ctx.stroke();
+        ctx.shadowBlur = 0;
       }
 
       ctx.save();
@@ -358,7 +375,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
       ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.stroke();
-      
       ctx.fillStyle = color;
       ctx.globalAlpha = 0.3;
       ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
@@ -369,22 +385,17 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       ctx.save();
       ctx.translate(drawBall.x, drawBall.y);
       ctx.rotate(ballRotation.current);
-      
-      if (s.stretch > 0.9 || isBroken.current) {
+      if ((s.stretch > 0.9 || isBroken.current) && s.chestEffectTimer <= 0) {
         ctx.globalAlpha = 0.2;
         ctx.fillStyle = color;
         ctx.beginPath(); ctx.arc(0, 0, s.ballRadius + 4, 0, Math.PI * 2); ctx.fill();
         ctx.globalAlpha = 1.0;
       }
-
       const mainBallGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, s.ballRadius);
       mainBallGrad.addColorStop(0, color);
       mainBallGrad.addColorStop(1, 'rgba(0, 0, 0, 0.4)'); 
-      
       ctx.fillStyle = mainBallGrad;
       ctx.beginPath(); ctx.arc(0, 0, s.ballRadius, 0, Math.PI * 2); ctx.fill();
-
-      // Sharp patterns
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
       ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(0, 0, s.ballRadius * 0.5, 0, Math.PI * 2); ctx.stroke();
@@ -402,22 +413,74 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
         ctx.translate(t.pos.x, t.pos.y);
         ctx.rotate(targetRotation.current);
 
-        ctx.globalAlpha = 0.15;
-        ctx.fillStyle = tColor;
-        ctx.beginPath(); ctx.arc(0, 0, t.radius + 3, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = 1.0;
+        if (t.type === TargetType.CHEST) {
+          // Draw a real treasure chest box
+          const r = t.radius;
+          const chestGrad = ctx.createLinearGradient(0, -r, 0, r);
+          chestGrad.addColorStop(0, '#fbbf24'); // Top gold
+          chestGrad.addColorStop(1, '#92400e'); // Bottom brown-gold
 
-        const targetGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, t.radius);
-        targetGrad.addColorStop(0, tColor);
-        targetGrad.addColorStop(1, 'rgba(0, 0, 0, 0.5)');
+          // Main body (rectangular box)
+          ctx.fillStyle = chestGrad;
+          ctx.beginPath();
+          // ctx.roundRect(-r * 1.2, -r * 0.8, r * 2.4, r * 1.6, 4); // Basic rectangle
+          ctx.rect(-r * 1.2, -r * 0.8, r * 2.4, r * 1.6);
+          ctx.fill();
 
-        ctx.fillStyle = targetGrad;
-        ctx.beginPath(); ctx.arc(0, 0, t.radius, 0, Math.PI * 2); ctx.fill();
+          // Lid separation line
+          ctx.strokeStyle = '#451a03';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-r * 1.2, -r * 0.1);
+          ctx.lineTo(r * 1.2, -r * 0.1);
+          ctx.stroke();
 
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.ellipse(0, 0, t.radius * 0.8, t.radius * 0.2, 0, 0, Math.PI * 2); ctx.stroke();
-        ctx.beginPath(); ctx.ellipse(0, 0, t.radius * 0.2, t.radius * 0.8, 0, 0, Math.PI * 2); ctx.stroke();
+          // Straps (iron bands)
+          ctx.fillStyle = '#451a03';
+          ctx.fillRect(-r * 0.8, -r * 0.8, r * 0.3, r * 1.6);
+          ctx.fillRect(r * 0.5, -r * 0.8, r * 0.3, r * 1.6);
+
+          // Lock / Latch
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.rect(-r * 0.2, -r * 0.25, r * 0.4, r * 0.5);
+          ctx.fill();
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          // Highlight / Shine
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(-r * 1.0, -r * 0.6);
+          ctx.lineTo(-r * 0.6, -r * 0.6);
+          ctx.stroke();
+          
+          // Glow around chest
+          ctx.globalAlpha = 0.2;
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = '#fcd34d';
+          ctx.fillStyle = '#fcd34d';
+          ctx.beginPath(); ctx.arc(0, 0, r * 1.5, 0, Math.PI * 2); ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = 1.0;
+
+        } else {
+          ctx.globalAlpha = 0.15;
+          ctx.fillStyle = tColor;
+          ctx.beginPath(); ctx.arc(0, 0, t.radius + 3, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1.0;
+          const targetGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, t.radius);
+          targetGrad.addColorStop(0, tColor);
+          targetGrad.addColorStop(1, 'rgba(0, 0, 0, 0.5)');
+          ctx.fillStyle = targetGrad;
+          ctx.beginPath(); ctx.arc(0, 0, t.radius, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.ellipse(0, 0, t.radius * 0.8, t.radius * 0.2, 0, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.ellipse(0, 0, t.radius * 0.2, t.radius * 0.8, 0, 0, Math.PI * 2); ctx.stroke();
+        }
         ctx.restore();
       }
 
@@ -465,6 +528,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
           if (uiRefs.blackTimerContainer.current.style.display !== 'none') uiRefs.blackTimerContainer.current.style.display = 'none';
         }
       }
+      if (uiRefs.chestTimerContainer.current && uiRefs.chestTimerBar.current) {
+        if (s.chestEffectTimer > 0) {
+          if (uiRefs.chestTimerContainer.current.style.display !== 'block') uiRefs.chestTimerContainer.current.style.display = 'block';
+          uiRefs.chestTimerBar.current.style.width = `${(s.chestEffectTimer / CHEST_EFFECT_DURATION) * 100}%`;
+        } else {
+          if (uiRefs.chestTimerContainer.current.style.display !== 'none') uiRefs.chestTimerContainer.current.style.display = 'none';
+        }
+      }
 
       if (uiRefs.perfect.current) {
         if (s.perfectStreak > 0) {
@@ -478,6 +549,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ settings, onGameOver, userAvata
       if (uiRefs.gauge.current) {
         const stretchPercent = Math.min(100, s.stretch * 100);
         uiRefs.gauge.current.style.width = isBroken.current ? '0%' : `${stretchPercent}%`;
+        if (s.chestEffectTimer > 0) {
+          uiRefs.gauge.current.style.backgroundColor = '#fcd34d';
+          uiRefs.gauge.current.style.boxShadow = '0 0 10px #fcd34d';
+        } else {
+          uiRefs.gauge.current.style.backgroundColor = '';
+          uiRefs.gauge.current.style.boxShadow = '';
+        }
       }
       if (uiRefs.tensionValue.current) uiRefs.tensionValue.current.textContent = isBroken.current ? 'SNAPPED' : `${Math.round(s.stretch * 100)}%`;
     };

@@ -11,7 +11,8 @@ export enum TargetType {
   GREEN = 'GREEN',   // Recovery
   RED = 'RED',       // Mass up
   WHITE = 'WHITE',   // Kinetic Chaos
-  BLACK = 'BLACK'    // Gravity Invert
+  BLACK = 'BLACK',   // Gravity Invert
+  CHEST = 'CHEST'    // Unlimited Rubber
 }
 
 export type ScoreDisplayMode = 'scientific' | 'kanji';
@@ -49,8 +50,9 @@ export interface GameStats {
   ballRadius: number;
   stretch: number;
   dangerTime: number;
-  whiteEffectTimer: number; // New
-  blackEffectTimer: number; // New
+  whiteEffectTimer: number; 
+  blackEffectTimer: number;
+  chestEffectTimer: number; // Added
 }
 
 export interface NostrUser {

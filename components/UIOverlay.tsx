@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Timer, Trophy, Activity, Zap, MoveUp } from 'lucide-react';
+import { Timer, Trophy, Activity, Zap, MoveUp, ShieldCheck } from 'lucide-react';
 
 interface UIOverlayProps {
   refs: {
@@ -11,8 +11,10 @@ interface UIOverlayProps {
     comboTimerBar: React.RefObject<HTMLDivElement | null>;
     whiteTimerBar: React.RefObject<HTMLDivElement | null>;
     blackTimerBar: React.RefObject<HTMLDivElement | null>;
+    chestTimerBar: React.RefObject<HTMLDivElement | null>;
     whiteTimerContainer: React.RefObject<HTMLDivElement | null>;
     blackTimerContainer: React.RefObject<HTMLDivElement | null>;
+    chestTimerContainer: React.RefObject<HTMLDivElement | null>;
     perfect: React.RefObject<HTMLDivElement | null>;
     gauge: React.RefObject<HTMLDivElement | null>;
     gaugeContainer: React.RefObject<HTMLDivElement | null>;
@@ -83,6 +85,17 @@ const UIOverlay: React.FC<UIOverlayProps> = ({ refs }) => {
                     style={{ width: '100%' }}
                 />
                 <MoveUp className="absolute right-1 top-1/2 -translate-y-1/2 text-white w-2 h-2" />
+            </div>
+
+            {/* Chest Timer (Unlimited) */}
+            <div ref={refs.chestTimerContainer} className="w-32 md:w-48 h-1 md:h-2.5 bg-zinc-900 rounded-full overflow-hidden border border-yellow-500/50 shadow-sm relative" style={{ display: 'none' }}>
+                <div 
+                    ref={refs.chestTimerBar}
+                    className="h-full bg-yellow-400 shadow-[0_0_12px_rgba(250,204,21,1)] transition-all duration-75"
+                    style={{ width: '100%' }}
+                />
+                <ShieldCheck className="absolute right-1 top-1/2 -translate-y-1/2 text-black w-2 h-2" />
+                <span className="absolute inset-0 flex items-center justify-center text-[6px] font-black text-black uppercase tracking-tighter">Unlimited</span>
             </div>
         </div>
 
